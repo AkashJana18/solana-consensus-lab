@@ -1,0 +1,17 @@
+[package]
+name = "sim-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "consensus-lab: headless runner for the Solana consensus simulator"
+
+[[bin]]
+name = "consensus-lab"
+path = "src/main.rs"
+
+[dependencies]
+sim-core = { path = "../sim-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+clap = { version = "4", features = ["derive"] }
+anyhow = "1"

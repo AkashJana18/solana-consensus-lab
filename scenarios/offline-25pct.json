@@ -1,0 +1,18 @@
+{
+  "name": "offline-25pct",
+  "description": "A quarter of the stake is offline from the start. Alpenglow cannot reach the 80% fast path and falls back to the two-round 60% slow path; TowerBFT still confirms but with less margin.",
+  "seed": 1,
+  "duration_ms": 20000,
+  "validators": {
+    "count": 25
+  },
+  "faults": [
+    {
+      "kind": "offline",
+      "target": {
+        "stake_pct": 0.25
+      },
+      "from_ms": 0
+    }
+  ]
+}

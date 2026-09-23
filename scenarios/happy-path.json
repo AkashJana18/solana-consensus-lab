@@ -1,0 +1,9 @@
+{
+  "name": "happy-path",
+  "description": "25 validators across 6 regions, no faults. Watch one transaction: Alpenglow fast-finalizes it in ~150 ms after the block lands (80% notarize votes \u2192 fast-finalization certificate); TowerBFT optimistically confirms it in ~0.5 s and roots it only after 32 stacked votes (~12.8 s).",
+  "seed": 1,
+  "duration_ms": 16000,
+  "validators": {
+    "count": 25
+  }
+}

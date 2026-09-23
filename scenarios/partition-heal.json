@@ -1,0 +1,25 @@
+{
+  "name": "partition-heal",
+  "description": "The network splits into two equal-stake halves for three slots (1.2 s) and the transaction is submitted mid-partition. Alpenglow: neither half reaches 60%, so nothing finalizes (and nothing conflicting ever can) until the heal, then votes flow and the chain resumes. TowerBFT: both halves keep producing blocks and voting on their own fork; after the heal, validators on the lighter fork are locked out (2, 4, 8 slots) until they can switch to the heaviest subtree.",
+  "seed": 1,
+  "duration_ms": 18000,
+  "validators": {
+    "count": 25
+  },
+  "faults": [
+    {
+      "kind": "partition",
+      "groups": {
+        "stake_split": [
+          0.5,
+          0.5
+        ]
+      },
+      "from_ms": 1500,
+      "to_ms": 2700
+    }
+  ],
+  "hero_tx": {
+    "submit_at_ms": 1800
+  }
+}

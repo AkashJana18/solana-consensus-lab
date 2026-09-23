@@ -1,0 +1,22 @@
+{
+  "name": "leader-down",
+  "description": "The leader of the second window (slots 4\u20137) is offline exactly when its turn comes, and the transaction is submitted during that dead window. Alpenglow nodes hit \u0394timeout, vote Skip for the whole window, form Skip certificates and the next leader builds on the last notarized block. TowerBFT sees four empty slots; the transaction waits for the next live leader, then confirms and later roots.",
+  "seed": 1,
+  "duration_ms": 20000,
+  "validators": {
+    "count": 25
+  },
+  "faults": [
+    {
+      "kind": "offline",
+      "target": {
+        "leader_of_slot": 4
+      },
+      "from_ms": 1000,
+      "to_ms": 5000
+    }
+  ],
+  "hero_tx": {
+    "submit_at_ms": 1700
+  }
+}
