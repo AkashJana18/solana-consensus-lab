@@ -67,6 +67,49 @@ sup { font-size: 9px; }
 .legend .legend-ring { border: 2px solid var(--warn); background: transparent; width: 10px; height: 10px; }
 .legend .legend-rpc { width: 8px; height: 8px; border-radius: 1px; transform: rotate(45deg); background: #e66767; }
 .fatal { position: absolute; z-index: 2; inset: 20px auto auto 20px; background: var(--surface-2); border: 1px solid var(--critical); padding: 12px 14px; border-radius: var(--radius); max-width: 520px; }
+.fatal.notice { border-color: var(--warn); display: flex; gap: 10px; align-items: center; }
+
+/* ---------- lesson panel ---------- */
+.main.lesson { grid-template-columns: 340px 1fr 400px; }
+.lesson-panel { display: grid; grid-template-rows: auto auto 1fr auto; min-height: 0; border-right: 1px solid var(--border); background: var(--bg); }
+.lesson-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; }
+.lesson-kicker { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.lesson-title { font-size: 14px; font-weight: 700; }
+.lesson-steps { display: flex; gap: 6px; margin: 0; padding: 0 14px 10px; list-style: none; border-bottom: 1px solid var(--border); }
+.lesson-dot button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); }
+.lesson-dot.done button { background: var(--good); border-color: var(--good); }
+.lesson-dot.current button { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.25); }
+.lesson-dot button:disabled { cursor: default; opacity: 0.5; }
+.lesson-body { overflow: auto; min-height: 0; padding: 8px 14px 14px; }
+.lesson-body h2 { font-size: 15px; margin: 6px 0 10px; }
+.md p { margin: 0 0 10px; color: var(--ink-2); }
+.md h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
+.md ul { margin: 0 0 10px; padding-left: 18px; color: var(--ink-2); }
+.md li { margin: 3px 0; }
+.md strong { color: var(--ink); }
+.md a { color: var(--accent); }
+.lesson-question { border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0 12px; background: var(--surface); }
+.lesson-prompt { margin: 0 0 8px; font-weight: 600; }
+.lesson-choices { display: grid; gap: 6px; }
+.lesson-choice { text-align: left; white-space: normal; line-height: 1.35; }
+.lesson-choice.on { border-color: var(--accent); background: rgba(57, 135, 229, 0.15); }
+.lesson-running { padding: 8px 0; }
+.lesson-answer { border-radius: var(--radius); padding: 10px 12px; margin: 8px 0 12px; border: 1px solid var(--serious); background: rgba(236, 131, 90, 0.08); }
+.lesson-answer[data-correct='true'] { border-color: var(--good); background: rgba(12, 163, 12, 0.08); }
+.lesson-answer-line { margin-bottom: 4px; }
+.lesson-hit { margin: 0 0 10px; }
+.lesson-actions { display: flex; gap: 8px; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); }
+.lesson-actions .primary { margin-left: auto; }
+.toast { background: var(--surface-3); color: var(--ink); padding: 3px 10px; font-size: 12px; }
+button.on { border-color: var(--accent); }
+
+/* lesson picker */
+.lesson-picker { width: min(640px, 90vw); }
+.lesson-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; max-height: 60vh; overflow: auto; }
+.lesson-card { width: 100%; text-align: left; white-space: normal; display: grid; gap: 4px; padding: 10px 12px; }
+.lesson-card-title { font-weight: 700; font-size: 14px; }
+.lesson-card-summary { color: var(--ink-2); }
+.lesson-card-meta { font-size: 11px; }
 
 /* ---------- top bar ---------- */
 .topbar { display: flex; align-items: center; gap: 14px; padding: 0 14px; background: var(--surface); }
@@ -223,6 +266,7 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 }
 @media (max-width: 1200px) {
   .main { grid-template-columns: 1fr 340px; }
+  .main.lesson { grid-template-columns: 300px 1fr 340px; }
   .legend { display: none; }
   .topbar { gap: 8px; }
   .transport .lbl, .field > span, .brand span:not(.brand-mark) { display: none; }
