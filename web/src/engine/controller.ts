@@ -3,10 +3,11 @@
 import type { Scene } from '../render/scene';
 import { applyEvents, emptyView, type RunView } from '../store/runView';
 import { protocolsFor, useStore, type Mode } from '../store/useStore';
+import { compileTrigger, type Breakpoint, type HitCallback, type Matcher } from './breakpoint';
 import { SimClient, type EventsBatch } from './client';
 import { EventBuffer } from './eventBuffer';
 import { isVisibleAt } from '../render/interp';
-import type { Protocol, SimMeta } from './types';
+import type { Protocol, SimMeta, Traced } from './types';
 import { withSeed } from './wasmMain';
 
 interface Run {
@@ -35,6 +36,12 @@ export class Controller {
   private lastPoll = 0;
   private generation = 0;
   private stepPending: Protocol | null = null;
+
+  private bp: Breakpoint | null = null;
+  private bpMatch: Matcher | null = null;
+  private bpHit: HitCallback | null = null;
+  private pendingHit: { e: Traced | null; t: number } | null = null;
+  private configuredListeners = new Set<(mode: Mode, scenarioJson: string, seed: number) => void>();
 
   constructor() {
     this.loop = this.loop.bind(this);
@@ -76,6 +83,59 @@ export class Controller {
       if (gen !== this.generation) return;
       useStore.getState().set({ fatal: err instanceof Error ? err.message : String(err) });
     }
+    if (gen === this.generation) for (const l of this.configuredListeners) l(mode, scenarioJson, seed);
+  }
+
+  /** Called every time `configure()` finishes (successfully or with a fatal error) for the latest request. */
+  onConfigured(listener: (mode: Mode, scenarioJson: string, seed: number) => void): () => void {
+    this.configuredListeners.add(listener);
+    return () => this.configuredListeners.delete(listener);
+  }
+
+  // ---------------------------------------------------------------- breakpoints
+
+  /**
+   * Arm a stop condition. While playing, the clock halts on the exact sim time of the first
+   * matching event (or at `trigger.atUs` / `deadlineUs`), pauses, and calls `onHit` once with
+   * the event (null for time/deadline stops). The breakpoint is cleared when it fires.
+   */
+  setBreakpoint(bp: Breakpoint | null, onHit?: HitCallback): void {
+    this.bp = bp;
+    this.bpMatch = bp ? compileTrigger(bp.trigger) : null;
+    this.bpHit = bp ? onHit ?? null : null;
+    this.pendingHit = null;
+  }
+
+  get breakpoint(): Breakpoint | null {
+    return this.bp;
+  }
+
+  /** Clamp the frame's clock target to the first breakpoint hit in (displayTime, target]. */
+  private applyBreakpoint(target: number): number {
+    const bp = this.bp;
+    if (!bp) return target;
+    if (bp.trigger.type === 'time') {
+      if (target >= bp.trigger.atUs) {
+        this.pendingHit = { e: null, t: bp.trigger.atUs };
+        return Math.max(this.displayTime, bp.trigger.atUs);
+      }
+      return target;
+    }
+    const run = this.runs.get(bp.protocol);
+    if (!run) return target;
+    // After a rewind the buffer is empty until the worker replies; hold the clock rather than skip events.
+    if (run.resetting) return this.displayTime;
+    const match = this.bpMatch!;
+    const hit = run.buffer.range(this.displayTime, target).find((e) => match(e, run.view));
+    if (hit) {
+      this.pendingHit = { e: hit, t: hit.t };
+      return hit.t;
+    }
+    if (bp.deadlineUs !== undefined && target >= bp.deadlineUs) {
+      this.pendingHit = { e: null, t: bp.deadlineUs };
+      return Math.max(this.displayTime, bp.deadlineUs);
+    }
+    return target;
   }
 
   private attachMeta(run: Run, meta: SimMeta): void {
@@ -183,12 +243,23 @@ export class Controller {
       // Never outrun the workers: stall the clock instead of skipping events.
       for (const r of this.runs.values()) if (!r.client.done && !r.resetting) target = Math.min(target, r.client.now);
       target = Math.min(target, this.end);
+      target = this.applyBreakpoint(target);
       this.displayTime = Math.max(this.displayTime, target);
       if (this.displayTime >= this.end) state.set({ playing: false });
     }
 
     this.requestLookahead();
     for (const run of this.runs.values()) this.consume(run);
+
+    if (this.pendingHit) {
+      // Fire after consume() so the views already include the matching event.
+      const hit = this.pendingHit;
+      const cb = this.bpHit;
+      this.setBreakpoint(null);
+      state.set({ playing: false });
+      this.poll(true);
+      cb?.(hit.e, hit.t);
+    }
 
     if (nowMs - this.lastFlush > STORE_FLUSH_MS) {
       this.lastFlush = nowMs;

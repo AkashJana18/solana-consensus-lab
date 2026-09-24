@@ -35,11 +35,12 @@ deterministic Rust library that researchers can drive from the CLI.
 - Tests: unit, property-based safety & liveness, determinism; CI; GitHub Pages deploy.
 - **Verify:** `cargo test --workspace`; open the deployed site; hero tx finalizes in both protocols.
 
-### M2 — Lesson mode + shareable moments (≈ 3 weeks)
-- Guided lessons (MDX): "One transaction, two protocols", "Why votes on-chain cost block space", "Skip certificates", "Lockouts and why partitions hurt TowerBFT", "20+20".
-- Each lesson pauses the simulation at key events with an explainer and a *predict-then-run* question.
-- URL state: scenario + seed + protocol + timestamp + selected node, so an instructor can link to a precise moment.
-- **Verify:** five lessons complete; Playwright test follows a lesson end-to-end; instructor review from at least one program.
+### M2 — Lesson mode + shareable moments (done in this repository)
+- Guided lessons (TypeScript modules, `web/src/lessons/`): "One transaction, two protocols", "Why votes on-chain cost block space", "Skip certificates", "Lockouts and why partitions hurt TowerBFT", "20+20" (offline arm; the adversarial arm waits for M4's Byzantine faults).
+- Each lesson pauses the simulation on the exact trace event of each step (a breakpoint clamps the display clock before it advances) with an explainer and a *predict-then-run* question.
+- URL state: scenario (or compressed custom JSON) + seed + mode + time + selected node + tab + lesson step; the Share button copies it.
+- Engine fixes surfaced by the lessons: standstill recovery after partitions, Skip-certificate stake counted once per validator, stake-proportional Rotor relay sampling, re-forwarding of transactions from skipped blocks, a fifth builtin scenario.
+- **Verify:** `bun run e2e` follows the Skip-certificates lesson end-to-end and restores a share link (also in CI); instructor review from at least one program is still open.
 
 ### M3 — Embeddable widget + instructor pack (≈ 2 weeks)
 - `<consensus-lab scenario="leader-down" protocol="compare">` web component and an iframe URL scheme; theme tokens for host sites; `prefers-reduced-motion` support.

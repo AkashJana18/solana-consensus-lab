@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { controller } from '../engine/controller';
 import { loadScenario } from '../engine/wasmMain';
 import { SPEEDS, useStore, type Mode } from '../store/useStore';
+import { isShareable, shareUrl } from '../url/sync';
 import { slotOf } from '../util/format';
 
 const MODES: { id: Mode; label: string }[] = [
@@ -29,6 +30,30 @@ export function TopBar() {
     const n = Number.parseInt(seedText, 10);
     if (Number.isFinite(n) && n >= 0 && n !== s.seed) s.set({ seed: n });
     else setSeedText(String(s.seed));
+  };
+
+  const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = setTimeout(() => setToast(null), 2200);
+    return () => clearTimeout(id);
+  }, [toast]);
+
+  const share = async () => {
+    const state = useStore.getState();
+    if (!isShareable(state)) {
+      setToast('This browser cannot encode a custom scenario into a link');
+      return;
+    }
+    try {
+      const url = await shareUrl(state, controller.time);
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setToast('Link copied');
+      } else window.prompt('Copy this link', url);
+    } catch (e) {
+      setToast(`Could not build link: ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   return (
@@ -73,7 +98,21 @@ export function TopBar() {
         />
       </label>
 
+      <button onClick={() => s.set({ lessonsOpen: true })} title="Guided lessons" data-testid="lessons-open" className={s.lesson ? 'on' : ''}>
+        <span aria-hidden>☰</span>
+        <span className="lbl"> Lessons</span>
+      </button>
+
       <div className="transport">
+        {toast && (
+          <span className="chip toast" role="status" data-testid="share-toast">
+            {toast}
+          </span>
+        )}
+        <button onClick={() => void share()} title="Copy a link to this exact moment" data-testid="share">
+          <span aria-hidden>⧉</span>
+          <span className="lbl"> Share</span>
+        </button>
         <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={s.playing ? 'Pause' : 'Play'} title="Space">
           {s.playing ? '❚❚' : '▶'}
         </button>

@@ -60,6 +60,8 @@ pub struct SlotVotes {
     pub initial: BTreeMap<NodeId, Option<BlockHash>>,
     pub notar: BTreeMap<BlockHash, u64>,
     pub skip: u64,
+    #[serde(default)]
+    skip_voters: BTreeSet<NodeId>,
     pub notar_fb: BTreeMap<BlockHash, u64>,
     notar_fb_voters: BTreeMap<NodeId, BTreeSet<BlockHash>>,
     pub skip_fb: u64,
@@ -67,6 +69,9 @@ pub struct SlotVotes {
     pub finalize: u64,
     finalize_voters: BTreeSet<NodeId>,
     pub certs: BTreeSet<(CertKind, Option<BlockHash>)>,
+    /// Stake behind each certificate we hold (formed or received), so it can be re-broadcast.
+    #[serde(default)]
+    cert_stake: BTreeMap<(CertKind, Option<BlockHash>), u64>,
     safe_notar_emitted: BTreeSet<BlockHash>,
     safe_skip_emitted: bool,
 }
@@ -104,7 +109,14 @@ impl Pool {
                     e.insert(v.hash);
                     match v.hash {
                         Some(h) => *sv.notar.entry(h).or_default() += stake,
-                        None => sv.skip += stake,
+                        None => {
+                            sv.skip_voters.insert(v.voter);
+                            // A validator's stake counts once towards a Skip certificate even if it
+                            // casts both Skip and SkipFallback for the slot.
+                            if !sv.skip_fb_voters.contains(&v.voter) {
+                                sv.skip += stake;
+                            }
+                        }
                     }
                     true
                 }
@@ -123,7 +135,9 @@ impl Pool {
             },
             VoteKind::SkipFallback => {
                 if sv.skip_fb_voters.insert(v.voter) {
-                    sv.skip_fb += stake;
+                    if !sv.skip_voters.contains(&v.voter) {
+                        sv.skip_fb += stake;
+                    }
                     true
                 } else {
                     false
@@ -151,6 +165,7 @@ impl Pool {
         if !sv.certs.insert((c.kind, c.hash)) {
             return PoolOut::default();
         }
+        sv.cert_stake.insert((c.kind, c.hash), c.stake);
         let mut out = PoolOut::default();
         self.cert_events(c.slot, c.kind, c.hash, &mut out);
         let mut more = self.evaluate(c.slot, vs, p, own);
@@ -219,9 +234,22 @@ impl Pool {
             }
         }
         for c in &formed {
+            self.slots.entry(slot).or_default().cert_stake.insert((c.kind, c.hash), c.stake);
             self.cert_events(slot, c.kind, c.hash, &mut out);
         }
         out.new_certs = formed;
+        out
+    }
+
+    /// Every certificate this Pool holds for slots `>= from_slot` (standstill re-broadcast).
+    pub fn certs_from(&self, from_slot: u64) -> Vec<Cert> {
+        let mut out = Vec::new();
+        for (slot, sv) in self.slots.range(from_slot..) {
+            for (kind, hash) in &sv.certs {
+                let stake = sv.cert_stake.get(&(*kind, *hash)).copied().unwrap_or(0);
+                out.push(Cert { slot: *slot, kind: *kind, hash: *hash, stake });
+            }
+        }
         out
     }
 
