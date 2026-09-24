@@ -67,9 +67,10 @@ the heaviest child (ties → lower slot) among replayed blocks.
 block is voted on only after all its slices have arrived).
 
 **Rotor.** Each slice is `shreds_per_slice` erasure-coded shreds; the leader
-sends shred *j* to relay *j* (stake-weighted, distinct per slice) and the relay
-broadcasts it to all. Any `data_shreds` of them reconstruct the slice.
-**Blokstor** reports the first complete block per slot.
+sends shred *j* to relay *j* (one stake-weighted draw per shred, so a node's
+chance of relaying is proportional to its stake) and the relay broadcasts it to
+all. Any `data_shreds` of them reconstruct the slice. **Blokstor** reports the
+first complete block per slot.
 
 **Votor per-slot flags** (white paper v1.1, Algorithms 1–2):
 
@@ -90,7 +91,7 @@ threshold is crossed, and broadcasts each certificate once:
 |---|---|---|
 | Notarization | Notarize(b) | 60% |
 | Notar-Fallback | Notarize(b) + NotarFallback(b) | 60% |
-| Skip | Skip + SkipFallback | 60% |
+| Skip | Skip + SkipFallback (each validator's stake counted once) | 60% |
 | Fast-Finalization | Notarize(b) | 80% |
 | Finalization | Finalize(s) | 60% |
 
@@ -105,6 +106,20 @@ Skip + SkipFallback + Notarize votes for blocks other than its own ≥ 40%).
 Finalization certificate for its slot together with its Notarization
 certificate; finality is inherited by ancestors. A Skip certificate finalizes
 an empty slot. Nodes that learn of a certificate for a block they lack repair it.
+
+**Standstill recovery.** Votes and certificates are sent once, so two halves
+of a healed partition have never seen each other's votes for the stalled slots,
+and everyone has already voted. A node that observes no new finalization for
+Δstandstill (`standstill_ms`, teaching default 2 s; the paper's value is much
+longer) re-broadcasts its own votes and every certificate it holds from the
+last finalized slot on. The pooled Skip / SkipFallback / NotarFallback votes
+then reach 60% and the stalled window closes. The `standstill:` log line marks
+each burst.
+
+**Transactions in skipped blocks.** A leader that sees a Skip certificate for
+a slot it produced returns that block's transactions to its queue; an RPC node
+that forwarded a transaction into such a block re-forwards it (the `slot N was
+skipped with tx 0 inside` log line).
 
 **Resilience (20+20).** Safety holds with < 20% Byzantine stake (two
 conflicting 60% certificates need ≥ 20% double votes). Liveness holds with a

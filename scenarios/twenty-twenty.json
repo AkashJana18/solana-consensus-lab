@@ -1,0 +1,34 @@
+{
+  "name": "twenty-twenty",
+  "description": "20% of the stake is offline from the start, then a short 50/50 partition. Alpenglow's fast path needs 80% Notarize votes, so finality normally falls back to the 60% + 60% slow path; during the partition neither side holds 60% of the stake and the chain stalls safely until the heal. This is the offline arm of the 20+20 resilience model.",
+  "seed": 1,
+  "duration_ms": 14000,
+  "validators": {
+    "count": 25
+  },
+  "faults": [
+    {
+      "kind": "offline",
+      "target": {
+        "stake_pct": 0.21
+      },
+      "from_ms": 0
+    },
+    {
+      "kind": "partition",
+      "groups": {
+        "stake_split": [0.5, 0.5]
+      },
+      "from_ms": 4000,
+      "to_ms": 5500
+    }
+  ],
+  "hero_tx": {
+    "submit_at_ms": 1200
+  },
+  "params": {
+    "alpenglow": {
+      "standstill_ms": 1000
+    }
+  }
+}

@@ -12,6 +12,7 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("offline-25pct", include_str!("../../../scenarios/offline-25pct.json")),
     ("leader-down", include_str!("../../../scenarios/leader-down.json")),
     ("partition-heal", include_str!("../../../scenarios/partition-heal.json")),
+    ("twenty-twenty", include_str!("../../../scenarios/twenty-twenty.json")),
 ];
 
 pub fn builtin(name: &str) -> Option<&'static str> {
@@ -278,9 +279,10 @@ impl Target {
                         acc += vs.stake(*id);
                     }
                 }
-                // If we fell far short (very coarse stakes), allow one overshoot.
+                // If we fell far short (very coarse stakes), allow one overshoot with the
+                // smallest remaining node, so a 5% target can never take a 45% whale offline.
                 if (acc as f64) < 0.9 * goal as f64 {
-                    if let Some(id) = ids.iter().find(|id| !out.contains(id)) {
+                    if let Some(id) = ids.iter().filter(|id| !out.contains(id)).min_by_key(|id| vs.stake(**id)) {
                         out.push(*id);
                     }
                 }
@@ -406,6 +408,13 @@ pub struct AlpenglowParams {
     /// Turbine fanout used when `propagation = turbine`.
     #[serde(default = "d_fanout")]
     pub turbine_fanout: usize,
+    /// Δstandstill: a node that has seen no new finalization for this long re-broadcasts
+    /// its own votes and every certificate it holds from the last finalized slot on (white
+    /// paper "standstill" recovery), so peers that missed them (e.g. across a healed
+    /// partition) catch up. Teaching default 2 s; the white paper's value is much longer
+    /// (on the order of 10 s), which makes partition recovery invisible in short runs.
+    #[serde(default = "d_standstill")]
+    pub standstill_ms: f64,
 }
 
 fn d_timeout() -> f64 {
@@ -438,6 +447,9 @@ fn d_twenty() -> f64 {
 fn d_fanout() -> usize {
     4
 }
+fn d_standstill() -> f64 {
+    2_000.0
+}
 
 impl Default for AlpenglowParams {
     fn default() -> Self {
@@ -453,6 +465,7 @@ impl Default for AlpenglowParams {
             safe_notar_low: d_twenty(),
             safe_skip_threshold: d_forty(),
             turbine_fanout: d_fanout(),
+            standstill_ms: d_standstill(),
         }
     }
 }

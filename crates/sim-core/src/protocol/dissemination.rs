@@ -51,12 +51,27 @@ pub fn turbine_children(order: &[NodeId], me: NodeId, fanout: usize) -> Vec<Node
     order[start..(start + fanout).min(order.len())].to_vec()
 }
 
-/// Rotor relays for one slice: the first `count` nodes of the weighted order
-/// (distinct while enough nodes exist, then wrapping).
+/// Rotor relays for one slice: one stake-weighted draw per shred (with
+/// replacement), so a node's chance of relaying is proportional to its stake.
+/// Sampling a permutation instead would make every node a relay in small
+/// clusters and let a few offline low-stake nodes starve the slice.
 pub fn rotor_relays(vs: &ValidatorSet, leader: NodeId, seed: u64, count: usize) -> Vec<NodeId> {
-    let order = weighted_order(vs, Some(leader), seed);
-    if order.is_empty() {
+    let mut rng = Rng::seed(seed);
+    let weights: Vec<u64> = vs.stakes.iter().enumerate().map(|(i, s)| if i as NodeId == leader { 0 } else { *s }).collect();
+    let total: u64 = weights.iter().sum();
+    if total == 0 {
         return vec![leader; count];
     }
-    (0..count).map(|i| order[i % order.len()]).collect()
+    (0..count)
+        .map(|_| {
+            let mut r = rng.below(total);
+            for (i, w) in weights.iter().enumerate() {
+                if r < *w {
+                    return i as NodeId;
+                }
+                r -= *w;
+            }
+            (weights.len() - 1) as NodeId
+        })
+        .collect()
 }

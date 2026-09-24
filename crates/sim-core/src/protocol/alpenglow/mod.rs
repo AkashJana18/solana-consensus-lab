@@ -93,6 +93,8 @@ pub enum Timer {
     Replayed(BlockHash),
     /// RPC node: re-forward a transaction that has not landed yet (Gulf Stream retry).
     TxRetry(TxId),
+    /// Periodic standstill check: if nothing finalized for Δstandstill, re-broadcast certificates.
+    Standstill,
 }
 
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -124,6 +126,17 @@ pub struct Node {
     repair_requested: BTreeSet<BlockHash>,
     hero_block: Option<BlockHash>,
     tx_retries: u32,
+    /// Transactions this node received directly from a client (it acts as their RPC node).
+    #[serde(default)]
+    rpc_txs: BTreeSet<TxId>,
+    /// Sim time of the last new finalization seen (standstill detection).
+    #[serde(default)]
+    last_progress: crate::time::SimTime,
+    #[serde(default)]
+    last_standstill: crate::time::SimTime,
+    /// Our own votes per slot, kept so standstill recovery can re-broadcast them.
+    #[serde(default)]
+    own_votes: BTreeMap<u64, Vec<Vote>>,
 }
 
 impl Protocol for Alpenglow {
@@ -151,10 +164,15 @@ impl Protocol for Alpenglow {
             repair_requested: BTreeSet::new(),
             hero_block: None,
             tx_retries: 0,
+            rpc_txs: BTreeSet::new(),
+            last_progress: 0,
+            last_standstill: 0,
+            own_votes: BTreeMap::new(),
         }
     }
 
     fn on_start(node: &mut Node, ctx: &mut Ctx<Self>) {
+        ctx.set_timer(ms_f(ctx.params.alpenglow.standstill_ms), Timer::Standstill);
         // Genesis is ready for everyone: ParentReady(0, GENESIS).
         let me = node.id;
         ctx.emit(TraceEvent::PoolEvent { node: me, slot: 0, kind: PoolEventKind::ParentReady, hash: Some(GENESIS) });
@@ -209,10 +227,42 @@ impl Protocol for Alpenglow {
                     node.forward_tx(tx, true, ctx);
                 }
             }
+            Timer::Standstill => {
+                // White paper "standstill" recovery: a node that has seen no finalization for
+                // Δstandstill re-broadcasts every certificate it holds from the last finalized
+                // slot on, so peers that missed them (e.g. across a healed partition) can catch up.
+                let period = ms_f(ctx.params.alpenglow.standstill_ms);
+                let since = ctx.now.saturating_sub(node.last_progress.max(node.last_standstill));
+                if since >= period {
+                    let from = node.highest_finalized_slot.unwrap_or(0);
+                    let certs = node.pool.certs_from(from);
+                    let votes: Vec<Vote> = node.own_votes.range(from..).flat_map(|(_, vs)| vs.iter().cloned()).collect();
+                    if !certs.is_empty() || !votes.is_empty() {
+                        ctx.emit(TraceEvent::Log {
+                            node: Some(node.id),
+                            msg: format!(
+                                "standstill: no finalization for {} ms; re-broadcasting {} certificates and {} own votes from slot {from}",
+                                (ctx.now - node.last_progress) / 1000,
+                                certs.len(),
+                                votes.len()
+                            ),
+                        });
+                        for c in certs {
+                            ctx.broadcast(Msg::Cert(c));
+                        }
+                        for v in votes {
+                            ctx.broadcast(Msg::Vote(v));
+                        }
+                    }
+                    node.last_standstill = ctx.now;
+                }
+                ctx.set_timer(period / 2, Timer::Standstill);
+            }
         }
     }
 
     fn on_client_tx(node: &mut Node, tx: TxId, ctx: &mut Ctx<Self>) {
+        node.rpc_txs.insert(tx);
         node.tx_stage(ctx, TxStage::Submitted, None, Some(format!("client → RPC node {}", node.id)));
         node.forward_tx(tx, false, ctx);
     }
@@ -245,8 +295,39 @@ impl Node {
     }
 
     fn accept_tx(&mut self, tx: TxId) {
-        if self.leader.seen_txs.insert(tx) && !self.leader.included.contains(&tx) {
+        self.leader.seen_txs.insert(tx);
+        if !self.leader.included.contains(&tx) && !self.leader.pending_txs.contains(&tx) {
             self.leader.pending_txs.push(tx);
+        }
+    }
+
+    /// A Skip certificate finalized slot `slot` as empty. If the hero tx was sitting in a block
+    /// for that slot, that block is dead: forget it, return its transactions to the leader's queue
+    /// and (on the RPC node) re-forward the tx through Gulf Stream.
+    fn on_slot_skipped(&mut self, slot: u64, ctx: &mut Ctx<Alpenglow>) {
+        let Some(h) = self.hero_block else { return };
+        let hero_slot = self.blokstor.get(h).map(|m| m.slot).or_else(|| self.leader.produced.get(&slot).filter(|(hh, _)| *hh == h).map(|_| slot));
+        if hero_slot != Some(slot) {
+            return;
+        }
+        self.hero_block = None;
+        self.leader.included.remove(&HERO_TX);
+        if let Some((hh, _)) = self.leader.produced.get(&slot).copied() {
+            if let Some(txs) = self.leader.block_txs.remove(&hh) {
+                for t in txs {
+                    self.leader.included.remove(&t);
+                    if !self.leader.pending_txs.contains(&t) {
+                        self.leader.pending_txs.push(t);
+                    }
+                }
+            }
+        }
+        if self.rpc_txs.contains(&HERO_TX) {
+            ctx.emit(TraceEvent::Log { node: Some(self.id), msg: format!("slot {slot} was skipped with tx {HERO_TX} inside; re-forwarding it") });
+            if self.tx_retries < 40 {
+                self.tx_retries += 1;
+                self.forward_tx(HERO_TX, true, ctx);
+            }
         }
     }
 
@@ -283,7 +364,9 @@ impl Node {
         if kind == VoteKind::Notarize && hash.is_some() && hash == self.hero_block {
             self.tx_stage(ctx, TxStage::Voted, Some(slot), None);
         }
-        ctx.broadcast_all(Msg::Vote(Vote { voter: self.id, slot, kind, hash }));
+        let vote = Vote { voter: self.id, slot, kind, hash };
+        self.own_votes.entry(slot).or_default().push(vote.clone());
+        ctx.broadcast_all(Msg::Vote(vote));
     }
 
     fn apply_votor(&mut self, acts: Vec<VotorAction>, ctx: &mut Ctx<Alpenglow>) {
@@ -341,7 +424,7 @@ impl Node {
                     self.check_slow_final(s, ctx);
                 }
                 PoolEv::NotarFallbackCert(s, h) => self.maybe_repair(s, h, ctx),
-                PoolEv::Skipped(_) => {}
+                PoolEv::Skipped(s) => self.on_slot_skipped(s, ctx),
                 PoolEv::FastFinalized(s, h) => {
                     self.maybe_repair(s, h, ctx);
                     self.finalize_block(s, h, "fast-finalization certificate (≥80%)", ctx);
@@ -382,7 +465,11 @@ impl Node {
 
     fn finalize_block(&mut self, slot: u64, hash: BlockHash, why: &str, ctx: &mut Ctx<Alpenglow>) {
         if self.finalized.insert(hash) {
+            self.last_progress = ctx.now;
             self.highest_finalized_slot = Some(self.highest_finalized_slot.map_or(slot, |s| s.max(slot)));
+            // Votes for finalized slots are never needed again.
+            let keep_from = self.highest_finalized_slot.unwrap_or(0);
+            self.own_votes = self.own_votes.split_off(&keep_from);
             ctx.emit(TraceEvent::Commitment { node: self.id, slot, hash, level: Commitment::Finalized });
             if self.hero_block == Some(hash) {
                 self.tx_stage(ctx, TxStage::Finalized, Some(slot), Some(why.to_string()));
@@ -637,5 +724,19 @@ mod tests {
         assert_consistent_finality(&tr);
         let m = Metrics::from_trace(&tr);
         assert!(m.tx_stage_ms.contains_key("finalized"), "chain should resume after heal: {:?}", m.tx_stage_ms);
+    }
+
+    /// The builtin "20+20" scenario (20% offline, then a 30/70 partition) must stay live and safe:
+    /// the hero tx finalizes and no slot ever carries two finalized blocks.
+    #[test]
+    fn twenty_twenty_finalizes_hero_tx_and_survives_partition() {
+        let json = crate::scenario::builtin("twenty-twenty").expect("twenty-twenty is a builtin scenario");
+        let (_, tr) = run(json);
+        assert_consistent_finality(&tr);
+        let m = Metrics::from_trace(&tr);
+        assert!(m.tx_stage_ms.contains_key("finalized"), "hero tx never finalized: {:?}", m.tx_stage_ms);
+        let finals = m.certificates.get("finalization").copied().unwrap_or(0)
+            + m.certificates.get("fast_finalization").copied().unwrap_or(0);
+        assert!(finals > 0, "expected some finality certificate: {:?}", m.certificates);
     }
 }
