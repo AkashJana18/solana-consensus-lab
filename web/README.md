@@ -31,14 +31,18 @@ inside the Web Worker via `fetch`, so no special headers are needed.
 ## Test
 
 ```sh
-bun run test                     # vitest: event buffer, particle interpolation, tx-stage reducer
+bun run test                     # vitest: event buffer, interpolation, tx stages, URL state, triggers, markdown, lesson registry
 bunx playwright install chromium # once
-bun run e2e                      # Playwright smoke test (starts the dev server itself)
+bun run e2e                      # Playwright (starts the dev server itself); also runs in CI
 ```
 
-The smoke test (`e2e/smoke.spec.ts`) loads the page, selects `happy-path`, plays at 20×
-and asserts the Transaction panel shows a finalized time for Alpenglow, then writes
-`e2e/screenshots/happy-path.png`.
+- `e2e/smoke.spec.ts` loads the page, selects `happy-path`, plays at 20× and asserts the
+  Transaction panel shows a finalized time for Alpenglow, then writes `e2e/screenshots/happy-path.png`.
+- `e2e/compare.spec.ts` does the same for `leader-down` in Compare mode.
+- `e2e/lesson.spec.ts` follows the *Skip certificates* lesson end to end: intro, auto-run step,
+  predict → run → reveal, Back to a recorded stop, outro, finish.
+- `e2e/share.spec.ts` opens a share link, checks every field was restored, and reads the link
+  the Share button copies to the clipboard.
 
 ## Architecture
 
@@ -87,27 +91,72 @@ Key ideas:
 - **Colour** is reserved for message identity (shred blue, vote aqua, certificate gold,
   repair grey; the hero tx is a white glow). The palette was validated CVD-safe against
   the canvas surface with the dataviz validator; nodes stay neutral so traffic pops.
+- **Breakpoints** (`engine/breakpoint.ts`, `Controller.setBreakpoint`). A lesson step names a
+  declarative `Trigger`; each frame the controller computes the clock target, and *before*
+  advancing scans `EventBuffer.range(displayTime, target)` of the watched run for the first
+  matching event and clamps the target to its exact `t`. The stop is therefore frame-exact
+  at any speed with no rewind. `time` triggers and `deadlineUs` clamp to an absolute time.
+  While a run is `resetting` after a backward seek the clock is held.
+- **URL state** (`url/state.ts`, `url/sync.ts`). `?scenario=…&seed=…&mode=…&t=<ms>&node=…&tab=…&speed=…&lesson=…&step=…`;
+  a custom scenario is deflate-raw + base64url in `s=`. `App` hydrates the store from the URL
+  before the first `configure()` and seeks to `t` once it resolves; `startUrlSync` mirrors the
+  store back with a debounced `replaceState`, writing `t` only while the clock is paused.
+
+## Lessons
+
+A lesson is a plain TypeScript object (`src/lessons/types.ts`) registered in
+`src/lessons/index.ts`:
+
+```ts
+export const skipCerts: Lesson = {
+  id: 'skip-certs', title: '…', summary: '…', minutes: 4,
+  scenario: 'leader-down', mode: 'alpenglow', seed: 1, speed: 1,
+  intro: `markdown…`,
+  steps: [
+    { id: 'offline', title: '…', protocol: 'alpenglow', trigger: { type: 'node_offline' }, body: `…` },
+    { id: 'skip-cert', title: '…', protocol: 'alpenglow', trigger: { type: 'certificate', kind: 'skip' },
+      tab: 'votor', selectNode: 'hit',
+      lead: `shown before the run`, question: { prompt, choices, answer, explain }, body: (hit, view) => `…` },
+  ],
+  outro: `markdown…`,
+};
+```
+
+- `trigger` is one of the `Trigger` variants in `engine/breakpoint.ts` (`tx_stage`, `certificate`,
+  `pool_event`, `votor_flag`, `timeout`, `node_offline`, `partition_start/end`, `block_produced`,
+  `tower_update`, `commitment`, `log`, `time`). `deadlineUs` stops anyway if it never fires.
+- `body` may be a function of the hit event and the run's `RunView`, so copy can quote the
+  actual slot, stake or metric. `lead` is shown before the stop; a step without a `question`
+  runs as soon as it is entered.
+- Text is a small markdown subset (`lessons/markdown.ts`): paragraphs, `## ` headings,
+  `- ` bullets, `**bold**`, `` `code` ``, `[text](url)`.
+- `lessons/runner.ts` drives the store and controller; `components/LessonPanel.tsx` renders the
+  left column. `test/lessons.test.ts` checks every lesson's scenario exists and steps are well-formed.
+- Verify timings with the CLI before writing copy, e.g.
+  `cargo run -p sim-cli -- run --scenario leader-down --protocol alpenglow --events 100000 --only certificate,pool_event`.
 
 ### Files
 
 ```
 src/
   engine/   types.ts (contract mirror) · protocol.ts · worker.ts · client.ts
-            eventBuffer.ts · txStages.ts · controller.ts · wasmMain.ts
+            eventBuffer.ts · txStages.ts · controller.ts · breakpoint.ts · wasmMain.ts
   render/   colors.ts · layout.ts · interp.ts · particles.ts · scene.ts · CanvasView.tsx
   store/    useStore.ts (zustand) · runView.ts (event → view reducer)
-  components/ TopBar · Timeline · Inspector · ScenarioModal
+  url/      state.ts (parse/format/compress) · sync.ts (store ⇄ address bar, share link)
+  lessons/  types.ts · markdown.ts · runner.ts · index.ts · one lesson per file
+  components/ TopBar · Timeline · Inspector · ScenarioModal · LessonPanel · LessonPicker · Markdown
               panels/ Transaction · Votor · Tower · Events · Metrics
               charts/ TallyBar · LockoutBars · ForkTree · StatTile
-test/     vitest unit tests        e2e/  Playwright smoke test + screenshots
+test/     vitest unit tests        e2e/  Playwright specs + screenshots
 ```
 
 ### Contract notes (docs/wasm-api.md vs actual bindings)
 
 - `builtinScenario(name)` returns `string | undefined` (doc: `string`).
-- `block_produced` carries an undocumented `vote_txs` field; under Tower its `txs` list
-  does not include the hero tx id, so the UI derives the hero block from the
-  `tx_stage: included_in_block` event's slot instead.
+- Under Tower, `block_produced.txs` does not include the hero tx id, so the UI derives the
+  hero block from the `tx_stage: included_in_block` event's slot instead. `vote_txs` on the
+  same event is the count of vote transactions packed (0 under Alpenglow).
 - `Sim.protocol()` exists in the bindings but is undocumented.
 - `inspect(node).pool` (Alpenglow) contains `null` entries for slots the node holds no
   tally for; the UI filters them. Tower `inspect().forks` entries carry extra `leader` and
