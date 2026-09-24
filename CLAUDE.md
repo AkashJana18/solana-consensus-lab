@@ -133,7 +133,8 @@ emits ~60k `msg_sent` events, so never render events as DOM.
 - Alpenglow `standstill_ms` (default 2 s, paper value much longer): with no new finalization for that long a node re-broadcasts its votes and certificates. Without it a healed partition deadlocks, because votes are sent once and both halves have already voted.
 - A validator's stake counts once towards a Skip certificate even if it casts Skip and SkipFallback (`pool.rs` tracks `skip_voters`).
 - Rotor relays are sampled per shred with replacement, proportional to stake; a permutation made every node a relay in small clusters and offline low-stake nodes starved slices.
-- `Target::StakePct` picks random nodes that fit under the target and, if far short, the *smallest* remaining node; the old "any node" overshoot could take a 45% whale offline for a 5% target.
+- `Target::StakePct` picks random nodes that fit under the target and, if far short, the *smallest* remaining node only when that lands closer to the target; the old "any node" overshoot took a 95% whale offline for a 19% target (liveness proptest seed 9684). Realized offline stake can therefore be *below* the target.
+- An Alpenglow leader stops producing slices for a slot once its Pool holds a Skip certificate for it, and receivers do not count a block in a skipped slot as "landed" for the hero tx; otherwise a tx could be buried in a dead block with no retry.
 
 ## Tests
 

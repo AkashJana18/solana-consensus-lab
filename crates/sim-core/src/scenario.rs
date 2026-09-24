@@ -280,10 +280,14 @@ impl Target {
                     }
                 }
                 // If we fell far short (very coarse stakes), allow one overshoot with the
-                // smallest remaining node, so a 5% target can never take a 45% whale offline.
+                // smallest remaining node, but only if that lands closer to the goal than
+                // stopping short: a 19% target must never take a 95% whale offline.
                 if (acc as f64) < 0.9 * goal as f64 {
                     if let Some(id) = ids.iter().filter(|id| !out.contains(id)).min_by_key(|id| vs.stake(**id)) {
-                        out.push(*id);
+                        let with = acc + vs.stake(*id);
+                        if with.abs_diff(goal) < acc.abs_diff(goal) {
+                            out.push(*id);
+                        }
                     }
                 }
                 out.sort_unstable();
@@ -543,6 +547,44 @@ impl Default for TowerParams {
             gossip_votes: d_true(),
             forward_leaders: d_two(),
             grace_ms: d_grace(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn resolve(stakes: Vec<u64>, pct: f64, seed: u64) -> (Vec<NodeId>, u64, u64) {
+        let vs = ValidatorSet::new(stakes);
+        let sched = LeaderSchedule::generate(&vs, &mut Rng::seed(seed), 40, 4);
+        let nodes = Target::StakePct { stake_pct: pct }.resolve(&vs, &sched, &mut Rng::seed(seed));
+        let sum = vs.sum(nodes.iter().copied());
+        (nodes, sum, vs.total)
+    }
+
+    /// Seed 9684 of the liveness proptest: one validator holds 94.6% of the stake. A 19.1%
+    /// offline target must fall short (5.4%) rather than take the whale (100%) offline.
+    #[test]
+    fn stake_pct_never_overshoots_with_a_whale() {
+        let stakes = vec![946159, 13846, 8897, 8408, 4323, 3266, 3077, 3048, 2540, 2364, 2047, 2027];
+        for seed in 1..20 {
+            let (nodes, sum, total) = resolve(stakes.clone(), 0.191, seed);
+            assert!(!nodes.contains(&0), "whale taken offline (seed {seed})");
+            assert!(sum <= (0.191 * total as f64) as u64, "overshoot: {sum} of {total} (seed {seed})");
+        }
+    }
+
+    /// With a mainnet-like distribution the realized offline stake stays close to the target.
+    #[test]
+    fn stake_pct_lands_near_target_for_pareto_stakes() {
+        let spec = ValidatorSpec::default();
+        for seed in 1..40 {
+            let vs = spec.build(&mut Rng::seed(seed));
+            let (_, sum, total) = resolve(vs.stakes.clone(), 0.25, seed);
+            let frac = sum as f64 / total as f64;
+            assert!(frac <= 0.25 + 1e-9, "overshoot {frac} (seed {seed})");
+            assert!(frac >= 0.18, "fell too short: {frac} (seed {seed})");
         }
     }
 }

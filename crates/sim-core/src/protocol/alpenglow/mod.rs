@@ -549,7 +549,8 @@ impl Node {
             return;
         }
         ctx.emit(TraceEvent::BlockReceived { node: self.id, slot: meta.slot, hash: meta.hash });
-        if meta.txs.contains(&HERO_TX) {
+        // A block in an already-skipped slot can never be notarized; do not treat its txs as landed.
+        if meta.txs.contains(&HERO_TX) && !self.pool.is_skipped(meta.slot) {
             self.hero_block = Some(meta.hash);
             self.leader.included.insert(HERO_TX);
         }
@@ -588,6 +589,11 @@ impl Node {
     }
 
     fn produce_slice(&mut self, slot: u64, slice: u32, ctx: &mut Ctx<Alpenglow>) {
+        // A slot the cluster has already closed with a Skip certificate is dead: producing more
+        // slices for it would only bury transactions in a block nobody will notarize.
+        if self.pool.is_skipped(slot) {
+            return;
+        }
         let ap = ctx.params.alpenglow.clone();
         let me = self.id;
         let ws = ctx.schedule.window_start(slot);
