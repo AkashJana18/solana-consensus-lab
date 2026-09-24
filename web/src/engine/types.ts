@@ -92,7 +92,16 @@ export type TraceEvent =
   | { type: 'node_online'; node: NodeId }
   | { type: 'partition_start'; groups: NodeId[][] }
   | { type: 'partition_end' }
-  | { type: 'block_produced'; slot: number; hash: BlockHash; parent: BlockHash; leader: NodeId; txs: number[] }
+  | {
+      type: 'block_produced';
+      slot: number;
+      hash: BlockHash;
+      parent: BlockHash;
+      leader: NodeId;
+      txs: number[];
+      /** Vote transactions packed into the block (TowerBFT only; always 0 under Alpenglow). */
+      vote_txs: number;
+    }
   | { type: 'block_received'; node: NodeId; slot: number; hash: BlockHash }
   | { type: 'block_replayed'; node: NodeId; slot: number; hash: BlockHash }
   | { type: 'vote'; node: NodeId; slot: number; kind: VoteKind; hash?: BlockHash }
@@ -184,4 +193,7 @@ export interface Metrics {
   certificates: Partial<Record<CertKind, number>>;
   slots_started: number;
   blocks_produced: number;
+  /** Vote transactions packed into blocks (TowerBFT) and their byte cost; 0 under Alpenglow. */
+  vote_txs_in_blocks: number;
+  vote_tx_bytes_in_blocks: number;
 }

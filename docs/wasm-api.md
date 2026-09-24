@@ -126,6 +126,7 @@ Events panel should show verbatim — they are written for students.
   tx_stage_ms: Record<Stage, number>,          // first time each stage was reached
   msgs: Record<Kind, {count, bytes, dropped}>, total_msgs, total_bytes,
   votes: Record<VoteKind, number>, certificates: Record<CertKind, number>,
-  slots_started, blocks_produced
+  slots_started, blocks_produced,
+  vote_txs_in_blocks, vote_tx_bytes_in_blocks   // Tower vote transactions packed into blocks and their block-space cost (300 B each); 0 under Alpenglow
 }
 ```

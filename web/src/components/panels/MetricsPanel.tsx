@@ -40,6 +40,13 @@ export function MetricsPanel() {
           <Row label="bytes" protocols={protocols} f={(x) => fmtBytes(x.total_bytes)} m={m} />
           <Row label="blocks produced" protocols={protocols} f={(x) => fmtInt(x.blocks_produced)} m={m} />
           <Row label="slots started" protocols={protocols} f={(x) => fmtInt(x.slots_started)} m={m} />
+          <Row
+            label="vote txs in blocks (count · block space)"
+            protocols={protocols}
+            f={(x) => (x.vote_txs_in_blocks ? `${fmtInt(x.vote_txs_in_blocks)} · ${fmtBytes(x.vote_tx_bytes_in_blocks)}` : '—')}
+            m={m}
+            testId="vote-tx-bytes"
+          />
           <Section label="votes by kind" />
           {keys(protocols, m, (x) => x.votes).map((k) => (
             <Row key={k} label={k.replace(/_/g, ' ')} protocols={protocols} f={(x) => fmtInt(x.votes[k as keyof Metrics['votes']] ?? 0)} m={m} indent />
@@ -67,12 +74,12 @@ function keys(protocols: Protocol[], m: Partial<Record<Protocol, Metrics | null>
   return [...set].sort();
 }
 
-function Row({ label, protocols, f, m, indent }: { label: string; protocols: Protocol[]; f: (x: Metrics) => string; m: Partial<Record<Protocol, Metrics | null>>; indent?: boolean }) {
+function Row({ label, protocols, f, m, indent, testId }: { label: string; protocols: Protocol[]; f: (x: Metrics) => string; m: Partial<Record<Protocol, Metrics | null>>; indent?: boolean; testId?: string }) {
   return (
     <tr>
       <td className={indent ? 'indent' : ''}>{label}</td>
       {protocols.map((p) => (
-        <td key={p} className="num">
+        <td key={p} className="num" data-testid={testId ? `${testId}-${p}` : undefined}>
           {m[p] ? f(m[p]!) : '—'}
         </td>
       ))}
