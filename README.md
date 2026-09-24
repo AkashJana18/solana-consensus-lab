@@ -82,14 +82,6 @@ Everything the UI shows is derived from the trace, so the visualization can neve
 - TowerBFT follows Agave's `vote_state` (lockout doubling, `MAX_LOCKOUT_HISTORY = 31`), threshold check at depth 8 with ⅔, 38% switch threshold, heaviest-subtree fork choice restricted to replayed blocks, leader grace period, and block repair. PoH is modeled as the leader's clock, not as hashing.
 - The network model is abstract (latency matrix + jitter + egress serialization); it is not a packet-level simulation.
 
-## Roadmap (grant milestones)
-
-1. **v0.1 (this repo)**: both protocols, four scenarios, web UI with side-by-side compare, CLI, property tests.
-2. **Lesson mode**: guided stops with explanations, predict-then-run quizzes, shareable URLs to a scenario + seed + moment.
-3. **Embeddable widget** for course sites; instructor pack (slides, exercises, answer keys).
-4. **Attack lab**: equivocating leaders, double votes, withholding relays, the 20% double-sign wall, Tower lockout violations and switching proofs.
-5. **Realism**: mainnet stake + geography import, measured latency matrix, Rotor-vs-Turbine bandwidth explorer, CSV sweeps for research.
-6. **Live mode**: real slot/commitment progression from an RPC endpoint next to the simulation.
 
 ## License
 
