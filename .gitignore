@@ -19,6 +19,9 @@ Cargo.lock
 # OS
 .DS_Store
 
+# Vercel
+.vercel
+
 # Environment
 .env
 .env.local
