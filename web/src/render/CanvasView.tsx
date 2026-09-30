@@ -61,7 +61,13 @@ export function CanvasView({ protocol }: { protocol: Protocol }) {
       a.stage.addChild(scene.root);
       scene.resize(el.clientWidth, el.clientHeight);
       controller.attachScene(protocol, scene);
-      ro = new ResizeObserver(() => scene?.resize(el.clientWidth, el.clientHeight));
+      ro = new ResizeObserver(() => {
+        scene?.resize(el.clientWidth, el.clientHeight);
+        // Pixi's `resizeTo` only listens to window resize, so layout-driven size
+        // changes (lesson panel opening/closing, mode switches) must resize the
+        // renderer by hand or the scene is laid out wider than the canvas.
+        app?.resize();
+      });
       ro.observe(el);
       a.canvas.addEventListener('pointerdown', onClick);
     })();
