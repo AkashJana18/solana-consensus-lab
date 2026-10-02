@@ -102,6 +102,9 @@ Key ideas:
   before the first `configure()` and seeks to `t` once it resolves; `startUrlSync` mirrors the
   store back with a debounced `replaceState`, writing `t` only while the clock is paused.
 
+The whole-project map (crates, engine loop, render pipeline, test map, limits) is
+[`docs/architecture.md`](../docs/architecture.md); this section is the front end's own detail.
+
 ## Lessons
 
 A lesson is a plain TypeScript object (`src/lessons/types.ts`) registered in

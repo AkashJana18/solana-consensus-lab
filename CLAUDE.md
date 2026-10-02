@@ -64,7 +64,9 @@ scenarios/*.json ─▶ sim-core (Rust DES) ─▶ Vec<Traced> trace events
 defines `TraceEvent`; the CLI, `metrics.rs`, the property tests and the UI all
 consume only this stream. If the UI needs to show something new, add a trace
 event (and mirror it in `web/src/engine/types.ts` and `docs/wasm-api.md`),
-never a side channel.
+never a side channel. `docs/architecture.md` is the contributor map (Mermaid
+diagrams, module table, test map, "where do I add X", and the honest limits of
+the model) — keep it in step with this file's summary.
 
 **Engine / protocol split** (`sim.rs` + `protocol/mod.rs`). `Simulator<P>` owns
 the event heap, nodes, `Network`, `FaultState`, RNG and trace. A `Protocol`

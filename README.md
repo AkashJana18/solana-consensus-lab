@@ -100,7 +100,7 @@ scenarios/*.json ──▶ sim-core (Rust, deterministic DES) ──▶ TraceEve
                         └─▶ sim-wasm  ──▶ web/ (Worker ▸ event buffer ▸ PixiJS + React)
 ```
 
-Everything the UI shows is derived from the trace, so the visualization can never disagree with the simulation. `docs/wasm-api.md` is the contract between the engine and the UI.
+Everything the UI shows is derived from the trace, so the visualization can never disagree with the simulation. `docs/wasm-api.md` is the contract between the engine and the UI, and [`docs/architecture.md`](docs/architecture.md) is the full map — module by module, with diagrams of the engine loop and the render pipeline, where to add what, and an explicit list of what is modelled versus simplified.
 
 ## Fidelity notes
 

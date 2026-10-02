@@ -2,6 +2,7 @@
 
 This is the reference for what the simulator actually does, written for
 instructors. Every rule below maps to code in `crates/sim-core/src/protocol/`.
+For how the engine drives those rules, see [`architecture.md`](architecture.md).
 
 ## Shared stage: a transaction's journey
 
