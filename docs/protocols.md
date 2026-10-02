@@ -131,3 +131,19 @@ Latencies are one-way medians between six regions (EU-central, EU-west,
 US-east, US-west, Tokyo, Singapore) with log-normal jitter (σ = 0.15) and
 1 Gb/s egress serialization; execution takes 15 ms. Shred = 1228 bytes,
 Tower vote tx = 300 bytes, Alpenglow vote = 150 bytes, certificate = 1000 bytes.
+
+**Reading a finality number.** The white paper measures finalization *after a
+block has been distributed* — min(δ80%, 2δ60%), §1.3 — and reports a median of
+roughly 150 ms for randomly chosen leaders (Fig. 14). This simulator can measure
+the same thing per validator (`BlockReceived` → `Commitment{Finalized}` on the
+same block): on the `ideal-fast` scenario the median validator finalizes 149 ms
+after it receives the block, because that transaction rides the block's last
+slice and so pays almost none of the Δblock assembly time. The `happy-path`
+transaction lands in the first slice, waits for the whole 400 ms block and then
+takes 451 ms. Both run on the same healthy cluster with no faults; only the
+submission time differs. Paper values used as-is: Δblock = 400 ms, w = 4 blocks
+per leader window, Δstandstill = 10 s (the teaching default is 2 s), 60% / 80%
+certificate thresholds, and stake drawn from a Pareto distribution like
+mainnet. Smaller than the paper's: 25 validators instead of ~1,500, and 8 shreds
+per slice with 4 needed instead of Γ = 64 / γ = 32, so that dissemination is
+visible.

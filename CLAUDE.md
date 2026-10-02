@@ -86,10 +86,21 @@ rebuilds a fresh `Sim` and fast-forwards) both depend on it. Avoid `HashMap`
 iteration order in anything that affects behavior (code uses `BTreeMap`/`BTreeSet`).
 `Simulator` is fully serde-serializable for `snapshot`/`restore`.
 
-**Scenarios** are JSON with defaults for every field (`scenario.rs`). The five
+**Scenarios** are JSON with defaults for every field (`scenario.rs`). The six
 in `scenarios/` are `include_str!`-embedded as `scenario::BUILTIN`, so they ship
 inside the wasm too; adding one means adding the file and the `BUILTIN` entry
 (then rebuild the wasm; `test/lessons.test.ts` reads the directory).
+
+**Scenario timings are the contract.** A hero tx can only be voted on once its
+block is *complete*, i.e. after the leader has produced all `slices_per_block`
+slices across the whole Δblock (`slot_ms`, 400 ms = paper Table 10). So how
+late the tx lands inside a block moves `included_in_block → finalized` by up to
+a full slot, and the rest is δ80% of voting and certification. `happy-path`
+submits at 250 ms and the tx lands in slice 0 → 451 ms; `ideal-fast` submits at
+550 ms so it rides the last slice → 150 ms, the paper's Fig. 14 median (measured
+after a block is distributed, §1.3). Both scenarios are seed-pinned and
+`alpenglow::tests::ideal_fast_matches_the_papers_150ms_median` guards the
+number, so re-tune copy only with the CLI, never by hand.
 
 **Lessons and breakpoints** (`web/src/lessons/`, `web/src/engine/breakpoint.ts`).
 A lesson is a TypeScript object: scenario/mode/seed plus steps, each with a
