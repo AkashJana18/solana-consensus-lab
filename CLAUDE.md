@@ -52,12 +52,12 @@ is the type check. CI (`.github/workflows/ci.yml`) runs cargo test → wasm buil
 
 ## Architecture
 
-```
-scenarios/*.json ─▶ sim-core (Rust DES) ─▶ Vec<Traced> trace events
-                      protocol::alpenglow  (Rotor · Blokstor · Pool · Votor)
-                      protocol::tower      (PoH · Turbine · TowerState · ForkTree)
-                      ├─▶ sim-cli   (consensus-lab: run / inspect / replay / sweep)
-                      └─▶ sim-wasm  ─▶ web/ (Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React)
+```mermaid
+flowchart LR
+    SC["scenarios/*.json"] --> CORE["sim-core — deterministic Rust DES<br/>protocol::alpenglow — Rotor · Blokstor · Pool · Votor<br/>protocol::tower — PoH · Turbine · TowerState · ForkTree"]
+    CORE --> TRACE["Vec of Traced trace events"]
+    TRACE --> CLI["sim-cli — consensus-lab: run / inspect / replay / sweep"]
+    TRACE --> WASM["sim-wasm"] --> WEB["web — Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React"]
 ```
 
 **Everything observable is a trace event.** `crates/sim-core/src/trace.rs`

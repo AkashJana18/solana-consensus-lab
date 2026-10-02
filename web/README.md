@@ -46,29 +46,30 @@ bun run e2e                      # Playwright (starts the dev server itself); al
 
 ## Architecture
 
+```mermaid
+flowchart TB
+    subgraph MT["Main thread — one rAF loop, nothing per frame goes through React"]
+        CTRL["Controller<br/>displayTime += dt x speed, clamped to min(worker.now)<br/>look-ahead: advance(t + 300 ms x speed) · poll inspect/metrics at 5 Hz"]
+        BUF["EventBuffer<br/>drain(displayTime)"]
+        VIEW["RunView<br/>applyEvents → panels"]
+        SCENE["Pixi scene<br/>nodes · leader ring · dividers · pooled particles (≤6000)"]
+        STORE[("zustand store<br/>TopBar · Inspector · Timeline · panels observe at ≤15 Hz")]
+    end
+    subgraph W["Web Worker per protocol — engine/worker.ts"]
+        WASM["wasm Sim(protocol, scenarioJson)<br/>runUntil(t) → Traced[] · inspect(node) · metrics()<br/>reset(t) = fresh Sim + runUntil(t)"]
+    end
+    CTRL --> BUF
+    BUF --> VIEW
+    VIEW --> STORE
+    BUF -->|"msg_sent → emit a particle"| SCENE
+    CTRL -->|"init · advance · step · reset · inspect · metrics"| WASM
+    WASM -->|"events, JSON"| BUF
+    WASM -.->|"inspect() · metrics()"| CTRL
 ```
-┌──────────────────────────── main thread ─────────────────────────────┐
-│                                                                      │
-│  React (zustand store)          Controller (rAF loop, no React)      │
-│  ┌──────────────┐  set() ≤15Hz  ┌─────────────────────────────────┐  │
-│  │ TopBar       │◀──────────────│ displayTime += dt × speed       │  │
-│  │ Inspector    │               │ clamp to min(worker.now)        │  │
-│  │ Timeline     │── seek/play ─▶│ per run:                        │  │
-│  └──────────────┘               │   buffer.drain(displayTime)     │  │
-│                                 │   → applyEvents(view)  (panels) │  │
-│  Pixi Scene(s) ◀── emit/update ─│   → scene.emit(msg_sent)        │  │
-│  nodes · leader ring · dividers │   look-ahead: advance(t+300ms×s)│  │
-│  ParticleSystem (pooled, ≤6000) │   poll inspect()/metrics() 5 Hz │  │
-│                                 └────────────┬────────────────────┘  │
-└──────────────────────────────────────────────┼───────────────────────┘
-                     postMessage {init|advance|step|reset|inspect|metrics}
-                                               ▼
-┌──────────── Web Worker per protocol (engine/worker.ts) ──────────────┐
-│  wasm `Sim(protocol, scenarioJson)`                                  │
-│  runUntil(t) → JSON Traced[]  ·  inspect(node)  ·  metrics()         │
-│  reset(t): new Sim + runUntil(t)  (engine is deterministic)          │
-└──────────────────────────────────────────────────────────────────────┘
-```
+
+One worker per protocol (`alpenglow`, `tower`); `engine/protocol.ts` is the exact `postMessage`
+request/reply union.
+
 
 Key ideas:
 
