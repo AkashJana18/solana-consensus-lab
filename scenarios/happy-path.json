@@ -1,6 +1,6 @@
 {
   "name": "happy-path",
-  "description": "25 validators across 6 regions, no faults. Watch one transaction: Alpenglow fast-finalizes it in ~150 ms after the block lands (80% notarize votes \u2192 fast-finalization certificate); TowerBFT optimistically confirms it in ~0.5 s and roots it only after 32 stacked votes (~12.8 s).",
+  "description": "25 validators across 6 regions, no faults. Watch one transaction: it is submitted at 250 ms and lands in the first slice of the next leader's block, so it first waits for that whole 400 ms block to be assembled. Alpenglow then fast-finalizes it 451 ms after inclusion (80% notarize votes \u2192 fast-finalization certificate). TowerBFT optimistically confirms it 513 ms after inclusion and roots it only after 32 stacked votes, 12.7 s in. ideal-fast is the same healthy cluster with the transaction riding the block's last slice: 150 ms, the white paper's median.",
   "seed": 1,
   "duration_ms": 16000,
   "validators": {
