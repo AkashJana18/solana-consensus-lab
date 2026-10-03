@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import { controller } from '../engine/controller';
 import type { Fault, Protocol, SimMeta } from '../engine/types';
 import { TX_STAGES } from '../engine/txStages';
@@ -14,24 +14,27 @@ const PAD_R = 8;
 const BAND = ['#2b3a55', '#3b3550', '#2f4a45', '#4a3b2f', '#3f2f4a', '#2f4457', '#4a4a2f', '#3a2f2f'];
 
 export function Timeline() {
+
   const host = useRef<HTMLDivElement>(null);
   const { width } = useSize(host);
   const mode = useStore((s) => s.mode);
   const displayTime = useStore((s) => s.displayTime);
   const end = useStore((s) => s.end);
-  const protocols = protocolsFor(mode);
   // Only the meta is needed from the run; s.runs changes identity on every flush.
-  const meta = useStore((s) => s.runs[protocols[0]]?.meta ?? null);
+  const meta = useStore((s) => s.runs[protocolsFor(mode)[0]]?.meta ?? null);
   const W = Math.max(0, width - PAD_L - PAD_R);
-  const x = (us: number) => PAD_L + (end > 0 ? (us / end) * W : 0);
-  const tOf = (px: number) => (end > 0 ? ((px - PAD_L) / Math.max(1, W)) * end : 0);
+  // Stable identities: memo on the layers below is only worth anything if the props
+  // they compare do not change on every clock flush.
+  const protocols = useMemo(() => protocolsFor(mode), [mode]);
+  const x = useMemo(() => (us: number) => PAD_L + (end > 0 ? (us / end) * W : 0), [end, W]);
 
   const scrub = useCallback(
     (ev: React.PointerEvent<SVGSVGElement>) => {
       const rect = ev.currentTarget.getBoundingClientRect();
-      controller.seek(Math.max(0, Math.min(end, tOf(ev.clientX - rect.left))));
+      const raw = end > 0 ? ((ev.clientX - rect.left - PAD_L) / Math.max(1, W)) * end : 0;
+      controller.seek(Math.max(0, Math.min(end, raw)));
     },
-    [end, W], // eslint-disable-line react-hooks/exhaustive-deps
+    [end, W],
   );
 
   return (
@@ -48,21 +51,45 @@ export function Timeline() {
           }}
           onPointerMove={(e) => e.buttons & 1 && scrub(e)}
         >
-          {meta && <LeaderBands meta={meta} x={x} />}
-          {meta && <FaultBands faults={meta.scenario.faults} end={end} x={x} />}
-          {meta && <SlotTicks meta={meta} x={x} end={end} />}
+          {meta && <TimelineBands meta={meta} end={end} x={x} />}
           {protocols.map((p, i) => (
             <StageMarkers key={p} protocol={p} y={14 + i * 13} x={x} />
           ))}
-          <line x1={x(displayTime)} x2={x(displayTime)} y1={0} y2={H} stroke="#ffffff" strokeWidth={1.5} />
-          <polygon points={`${x(displayTime) - 5},0 ${x(displayTime) + 5},0 ${x(displayTime)},7`} fill="#ffffff" />
+          <Playhead t={displayTime} x={x} />
         </svg>
       )}
     </footer>
   );
 }
 
+/**
+ * Leader bands, fault bands and slot ticks depend only on the scenario and the width, so
+ * they are memoised: the playhead below moves on every flush, these do not. Rebuilding
+ * them was ~150 tick lines and labels 15 times a second for a 60s scenario.
+ */
+const TimelineBands = memo(function TimelineBands({ meta, end, x }: { meta: SimMeta; end: number; x: (us: number) => number }) {
+
+  return (
+    <g>
+      <LeaderBands meta={meta} x={x} />
+      <FaultBands faults={meta.scenario.faults} end={end} x={x} />
+      <SlotTicks meta={meta} x={x} end={end} />
+    </g>
+  );
+});
+
+const Playhead = memo(function Playhead({ t, x }: { t: number; x: (us: number) => number }) {
+
+  return (
+    <g>
+      <line x1={x(t)} x2={x(t)} y1={0} y2={H} stroke="#ffffff" strokeWidth={1.5} data-testid="timeline-playhead" />
+      <polygon points={`${x(t) - 5},0 ${x(t) + 5},0 ${x(t)},7`} fill="#ffffff" />
+    </g>
+  );
+});
+
 function LeaderBands({ meta, x }: { meta: SimMeta; x: (us: number) => number }) {
+
   const winUs = meta.window * meta.slot_ms * 1000;
   return (
     <g>
@@ -86,6 +113,7 @@ function LeaderBands({ meta, x }: { meta: SimMeta; x: (us: number) => number }) 
 }
 
 function SlotTicks({ meta, x, end }: { meta: SimMeta; x: (us: number) => number; end: number }) {
+
   const slotUs = meta.slot_ms * 1000;
   const n = Math.floor(end / slotUs);
   const every = n > 40 ? 5 : n > 20 ? 2 : 1;
@@ -128,7 +156,7 @@ function FaultBands({ faults, end, x }: { faults: Fault[]; end: number; x: (us: 
   );
 }
 
-function StageMarkers({ protocol, y, x }: { protocol: Protocol; y: number; x: (us: number) => number }) {
+const StageMarkers = memo(function StageMarkers({ protocol, y, x }: { protocol: Protocol; y: number; x: (us: number) => number }) {
   const stages = useStore((s) => s.runs[protocol]?.txStages);
   if (!stages) return null;
   return (
@@ -150,4 +178,4 @@ function StageMarkers({ protocol, y, x }: { protocol: Protocol; y: number; x: (u
       })}
     </g>
   );
-}
+});
