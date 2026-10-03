@@ -12,6 +12,19 @@ import { lessonRunner } from './lessons/runner';
 import { protocolsFor, useStore, type LabState } from './store/useStore';
 import { decompressScenario, parseUrlState } from './url/state';
 
+/** Keys a focused control owns: pressing them must act on the control, not scrub the clock. */
+const ACTIVATION_KEYS = new Set([' ', 'Spacebar', 'Enter']);
+const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
+
+function ownsKey(target: EventTarget | null, key: string): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || typeof el.closest !== 'function') return false;
+  if (el.closest('input, textarea, select, [contenteditable="true"]')) return true;
+  if (ACTIVATION_KEYS.has(key) && el.closest('button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], [role="switch"]')) return true;
+  if (ARROW_KEYS.has(key) && el.closest('[role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"]')) return true;
+  return false;
+}
+
 export function App() {
   const wasmReady = useStore((s) => s.wasmReady);
   const mode = useStore((s) => s.mode);
@@ -89,8 +102,9 @@ export function App() {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
+      // A focused control owns its own keys: Space on the step button steps an event
+      // instead of starting playback, arrows inside a tablist move the selection.
+      if (ownsKey(e.target, e.key)) return;
       if (e.code === 'Space') {
         e.preventDefault();
         controller.toggle();
@@ -99,7 +113,7 @@ export function App() {
       else if (e.key === 'ArrowLeft') {
         const slotUs = 400_000;
         controller.seek(controller.time - slotUs);
-      } else if (e.key === 'Enter' && (!target || target.tagName === 'BODY')) {
+      } else if (e.key === 'Enter' && e.target === document.body) {
         // Lesson shortcut: Enter runs the prediction or advances to the next step.
         const prog = useStore.getState().lesson;
         if (!prog) return;
