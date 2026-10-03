@@ -17,11 +17,11 @@ export function Timeline() {
   const host = useRef<HTMLDivElement>(null);
   const { width } = useSize(host);
   const mode = useStore((s) => s.mode);
-  const runs = useStore((s) => s.runs);
   const displayTime = useStore((s) => s.displayTime);
   const end = useStore((s) => s.end);
   const protocols = protocolsFor(mode);
-  const meta = runs[protocols[0]]?.meta ?? null;
+  // Only the meta is needed from the run; s.runs changes identity on every flush.
+  const meta = useStore((s) => s.runs[protocols[0]]?.meta ?? null);
   const W = Math.max(0, width - PAD_L - PAD_R);
   const x = (us: number) => PAD_L + (end > 0 ? (us / end) * W : 0);
   const tOf = (px: number) => (end > 0 ? ((px - PAD_L) / Math.max(1, W)) * end : 0);

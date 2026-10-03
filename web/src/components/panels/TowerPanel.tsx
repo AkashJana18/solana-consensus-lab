@@ -8,14 +8,26 @@ import { shortHash } from '../../store/runView';
  * trace event (display-time accurate) with `inspect()` as a fallback; the fork tree
  * is built from `block_produced` + `fork_choice` events, enriched by `inspect().forks`.
  */
+const EMPTY_COMMITMENT = { processed: -1, confirmed: -1, finalized: -1 };
+
 export function TowerPanel() {
-  const run = useStore((s) => s.runs.tower);
+
+  // Field-by-field rather than the whole view: each of these keeps its identity until its
+  // own trace event arrives, so the panel no longer re-renders on every 15 Hz flush.
+  const meta = useStore((s) => s.runs.tower?.meta ?? null);
+  const inspect = useStore((s) => s.runs.tower?.inspect ?? null);
+  const towers = useStore((s) => s.runs.tower?.towers);
+  const heads = useStore((s) => s.runs.tower?.heads);
+  const blocks = useStore((s) => s.runs.tower?.blocks);
+  const heroHash = useStore((s) => s.runs.tower?.heroHash);
+  const currentSlot = useStore((s) => s.runs.tower?.currentSlot ?? 0);
+  const commitment = useStore((s) => s.runs.tower?.commitment ?? EMPTY_COMMITMENT);
   const selected = useStore((s) => s.selectedNode) ?? 0;
-  if (!run?.meta) return <p className="empty">Loading…</p>;
-  const insp = run.inspect && run.inspect.protocol === 'tower' ? run.inspect : null;
-  const tower = run.towers.get(selected) ?? (insp && insp.node === selected ? { lockouts: insp.lockouts, root: insp.root, t: 0 } : null);
-  const head = run.heads.get(selected) ?? insp?.head ?? null;
-  const nodes: ForkTreeNode[] = forkNodesFromBlocks(run.blocks, run.heads, run.heroHash);
+  if (!meta) return <p className="empty">Loading…</p>;
+  const insp = inspect && inspect.protocol === 'tower' ? inspect : null;
+  const tower = towers?.get(selected) ?? (insp && insp.node === selected ? { lockouts: insp.lockouts, root: insp.root, t: 0 } : null);
+  const head = heads?.get(selected) ?? insp?.head ?? null;
+  const nodes: ForkTreeNode[] = forkNodesFromBlocks(blocks ?? [], heads ?? new Map(), heroHash ?? null);
   if (insp?.forks) {
     const byHash = new Map(insp.forks.map((f) => [f.hash, f]));
     for (const n of nodes) {
@@ -23,7 +35,7 @@ export function TowerPanel() {
       if (f) Object.assign(n, { weightPct: f.weight_pct, confirmed: f.confirmed, rooted: f.rooted });
     }
   }
-  const noData = !tower && run.blocks.length === 0;
+  const noData = !tower && (blocks?.length ?? 0) === 0;
   return (
     <div className="tower-panel">
       <div className="row-between">
@@ -40,7 +52,7 @@ export function TowerPanel() {
       )}
       {tower ? (
         tower.lockouts.length ? (
-          <LockoutBars lockouts={tower.lockouts} root={tower.root} currentSlot={run.currentSlot} />
+          <LockoutBars lockouts={tower.lockouts} root={tower.root} currentSlot={currentSlot} />
         ) : (
           <p className="empty">Tower is empty (no votes yet).</p>
         )
@@ -50,7 +62,7 @@ export function TowerPanel() {
       <div className="row-between">
         <h3>Fork tree</h3>
         <span className="muted small">
-          confirmed ≤ slot {run.commitment.confirmed < 0 ? '—' : run.commitment.confirmed} · finalized ≤ slot {run.commitment.finalized < 0 ? '—' : run.commitment.finalized}
+          confirmed ≤ slot {commitment.confirmed < 0 ? '—' : commitment.confirmed} · finalized ≤ slot {commitment.finalized < 0 ? '—' : commitment.finalized}
         </span>
       </div>
       <ForkTree nodes={nodes} />

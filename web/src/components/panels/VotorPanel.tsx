@@ -26,10 +26,14 @@ const THRESHOLDS = [
 ];
 
 export function VotorPanel() {
-  const run = useStore((s) => s.runs.alpenglow);
+
+
+  // meta lands once per configure; inspect is replaced by the 5 Hz poll. Selecting the two
+  // instead of the whole view keeps this panel off the 15 Hz flush entirely.
+  const meta = useStore((s) => s.runs.alpenglow?.meta ?? null);
+  const insp = useStore((s) => s.runs.alpenglow?.inspect ?? null);
   const selected = useStore((s) => s.selectedNode);
-  const insp = run?.inspect;
-  if (!run?.meta) return <p className="empty">Loading…</p>;
+  if (!meta) return <p className="empty">Loading…</p>;
   if (!insp || insp.protocol !== 'alpenglow') {
     return <p className="empty">Select a validator on the canvas to inspect its Votor state and vote Pool.</p>;
   }

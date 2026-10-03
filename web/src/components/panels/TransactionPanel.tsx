@@ -5,11 +5,16 @@ import { PROTOCOL_LABEL, fmtDeltaMs, fmtMs } from '../../util/format';
 
 /** Vertical stepper of the eight hero-tx stages, one time column per protocol. */
 export function TransactionPanel() {
+
+
   const mode = useStore((s) => s.mode);
-  const runs = useStore((s) => s.runs);
+  // reduceTxStages returns the same object until a stage is actually reached, so this
+  // panel stops re-rendering on the 15 Hz clock flush instead of riding it.
+  const alpenglowStages = useStore((s) => s.runs.alpenglow?.txStages);
+  const towerStages = useStore((s) => s.runs.tower?.txStages);
   const protocols = protocolsFor(mode);
   const maps: Record<string, TxStageMap> = {};
-  for (const p of protocols) maps[p] = runs[p]?.txStages ?? {};
+  for (const p of protocols) maps[p] = (p === 'tower' ? towerStages : alpenglowStages) ?? {};
 
   return (
     <div className="tx-panel">

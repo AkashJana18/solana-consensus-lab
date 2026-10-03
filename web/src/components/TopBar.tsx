@@ -11,25 +11,56 @@ const MODES: { id: Mode; label: string }[] = [
   { id: 'compare', label: 'Compare' },
 ];
 
+/**
+ * The clock has its own subscription so a running simulation does not reconcile the
+ * scenario select, the seed input and five buttons on every store flush just to move
+ * two digits. TopBar itself then only re-renders when one of its own fields changes.
+ */
+function ClockReadout() {
+
+  const displayTime = useStore((s) => s.displayTime);
+  const slotMs = useStore((s) => s.runs.alpenglow?.meta?.slot_ms ?? s.runs.tower?.meta?.slot_ms ?? 400);
+  return (
+    <div className="readout" aria-live="off" data-testid="readout">
+      <span className="readout-time">{(displayTime / 1000).toFixed(1)}</span>
+      <span className="muted"> ms</span>
+      <span className="readout-slot">slot {slotOf(displayTime, slotMs)}</span>
+    </div>
+  );
+}
+
 export function TopBar() {
-  const s = useStore();
-  const slotMs = s.runs.alpenglow?.meta?.slot_ms ?? s.runs.tower?.meta?.slot_ms ?? 400;
-  const [seedText, setSeedText] = useState(String(s.seed));
-  useEffect(() => setSeedText(String(s.seed)), [s.seed]);
+
+
+  // Narrow selectors, not useStore(): the controller writes displayTime on nearly every
+  // 15 Hz flush, and a whole-store subscription reconciles both selects, the seed input
+  // and five buttons each time just to move the clock readout.
+  const scenarioNames = useStore((s) => s.scenarioNames);
+  const scenarioName = useStore((s) => s.scenarioName);
+  const isCustom = useStore((s) => s.isCustom);
+  const mode = useStore((s) => s.mode);
+  const seed = useStore((s) => s.seed);
+  const playing = useStore((s) => s.playing);
+  const speed = useStore((s) => s.speed);
+  const lesson = useStore((s) => s.lesson);
+  const set = useStore((s) => s.set);
+
+  const [seedText, setSeedText] = useState(String(seed));
+  useEffect(() => setSeedText(String(seed)), [seed]);
 
   const onScenario = (value: string) => {
     if (value === '__custom') {
-      s.set({ customOpen: true });
+      set({ customOpen: true });
       return;
     }
     const json = loadScenario(value);
-    if (json) s.set({ scenarioName: value, scenarioJson: json, isCustom: false });
+    if (json) set({ scenarioName: value, scenarioJson: json, isCustom: false });
   };
 
   const commitSeed = () => {
     const n = Number.parseInt(seedText, 10);
-    if (Number.isFinite(n) && n >= 0 && n !== s.seed) s.set({ seed: n });
-    else setSeedText(String(s.seed));
+    if (Number.isFinite(n) && n >= 0 && n !== seed) set({ seed: n });
+    else setSeedText(String(seed));
   };
 
   const [toast, setToast] = useState<string | null>(null);
@@ -67,8 +98,8 @@ export function TopBar() {
 
       <label className="field">
         <span>Scenario</span>
-        <select value={s.isCustom ? '__custom' : s.scenarioName} onChange={(e) => onScenario(e.target.value)} data-testid="scenario-select">
-          {s.scenarioNames.map((n) => (
+        <select value={isCustom ? '__custom' : scenarioName} onChange={(e) => onScenario(e.target.value)} data-testid="scenario-select">
+          {scenarioNames.map((n) => (
             <option key={n} value={n}>
               {n}
             </option>
@@ -79,7 +110,7 @@ export function TopBar() {
 
       <div className="segmented" role="radiogroup" aria-label="Protocol mode">
         {MODES.map((m) => (
-          <button key={m.id} role="radio" aria-checked={s.mode === m.id} className={s.mode === m.id ? 'on' : ''} onClick={() => s.set({ mode: m.id })} data-testid={`mode-${m.id}`}>
+          <button key={m.id} role="radio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => set({ mode: m.id })} data-testid={`mode-${m.id}`}>
             {m.label}
           </button>
         ))}
@@ -98,7 +129,7 @@ export function TopBar() {
         />
       </label>
 
-      <button onClick={() => s.set({ lessonsOpen: true })} title="Guided lessons" data-testid="lessons-open" className={s.lesson ? 'on' : ''}>
+      <button onClick={() => set({ lessonsOpen: true })} title="Guided lessons" data-testid="lessons-open" className={lesson ? 'on' : ''}>
         <span aria-hidden>☰</span>
         <span className="lbl"> Lessons</span>
       </button>
@@ -115,8 +146,8 @@ export function TopBar() {
             </span>
           )}
         </div>
-        <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={s.playing ? 'Pause' : 'Play'} title="Space">
-          {s.playing ? '❚❚' : '▶'}
+        <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={playing ? 'Pause' : 'Play'} title="Space">
+          {playing ? '❚❚' : '▶'}
         </button>
         <button onClick={() => controller.stepEvent()} title="Step one engine event (.)" data-testid="step-event">
           <span aria-hidden>⏵</span>
@@ -126,7 +157,7 @@ export function TopBar() {
           <span aria-hidden>⏵⏵</span>
           <span className="lbl"> slot</span>
         </button>
-        <select value={s.speed} onChange={(e) => s.set({ speed: Number(e.target.value) })} aria-label="Playback speed" data-testid="speed">
+        <select value={speed} onChange={(e) => set({ speed: Number(e.target.value) })} aria-label="Playback speed" data-testid="speed">
           {SPEEDS.map((v) => (
             <option key={v} value={v}>
               {v}×
@@ -135,11 +166,7 @@ export function TopBar() {
         </select>
       </div>
 
-      <div className="readout" aria-live="off" data-testid="readout">
-        <span className="readout-time">{(s.displayTime / 1000).toFixed(1)}</span>
-        <span className="muted"> ms</span>
-        <span className="readout-slot">slot {slotOf(s.displayTime, slotMs)}</span>
-      </div>
+      <ClockReadout />
     </header>
   );
 }

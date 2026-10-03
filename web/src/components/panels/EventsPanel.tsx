@@ -8,12 +8,14 @@ const OVERSCAN = 6;
 
 /** Virtualised feed: only the rows inside the scroll viewport (+overscan) exist in the DOM. */
 export function EventsPanel() {
+
   const mode = useStore((s) => s.mode);
-  const runs = useStore((s) => s.runs);
+  const alpenglowFeed = useStore((s) => s.runs.alpenglow?.feed);
+  const towerFeed = useStore((s) => s.runs.tower?.feed);
   const protocols = protocolsFor(mode);
   const [proto, setProto] = useState(protocols[0]);
   const active = protocols.includes(proto) ? proto : protocols[0];
-  const feed = runs[active]?.feed ?? [];
+  const feed = (active === 'tower' ? towerFeed : alpenglowFeed) ?? [];
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(600);
   const ref = useRef<HTMLDivElement>(null);

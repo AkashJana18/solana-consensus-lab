@@ -4,11 +4,15 @@ import { PROTOCOL_LABEL, fmtBytes, fmtInt, fmtMsValue } from '../../util/format'
 import { StatTile } from '../charts/StatTile';
 
 export function MetricsPanel() {
+
   const mode = useStore((s) => s.mode);
-  const runs = useStore((s) => s.runs);
+  // metrics are only replaced by the 5 Hz poll, so selecting them (rather than s.runs,
+  // whose identity changes on every flush) drops this panel to its real update rate.
+  const alpenglowMetrics = useStore((s) => s.runs.alpenglow?.metrics);
+  const towerMetrics = useStore((s) => s.runs.tower?.metrics);
   const protocols = protocolsFor(mode);
   const m: Partial<Record<Protocol, Metrics | null>> = {};
-  for (const p of protocols) m[p] = runs[p]?.metrics ?? null;
+  for (const p of protocols) m[p] = (p === 'tower' ? towerMetrics : alpenglowMetrics) ?? null;
   const single = protocols.length === 1 ? m[protocols[0]] : null;
 
   return (
