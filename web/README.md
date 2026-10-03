@@ -52,6 +52,8 @@ bun run e2e                      # Playwright (starts the dev server itself); al
   drift while paused, and stage markers still appear as the run reaches them.
 - `e2e/node-picker.spec.ts` covers the keyboard node picker and the canvas's accessible name, and
   that an impossible `?node=` from the URL is dropped rather than left dangling.
+- `e2e/tooltip.spec.ts` holds the toolbar's hover/focus names: every icon-only control describes
+  itself, the tooltip sits under the control, it cannot swallow clicks, and Escape dismisses it.
 
 The Playwright viewport is 1440x900, so `responsive.spec.ts` is the only thing that exercises a
 narrow window. `smoke.spec.ts` and `compare.spec.ts` rewrite the tracked screenshots on every run;

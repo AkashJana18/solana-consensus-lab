@@ -7,6 +7,7 @@ import { LessonPanel } from './components/LessonPanel';
 import { LessonPicker } from './components/LessonPicker';
 import { ScenarioModal } from './components/ScenarioModal';
 import { Timeline } from './components/Timeline';
+import { Tooltip } from './components/Tooltip';
 import { TopBar } from './components/TopBar';
 import { lessonRunner } from './lessons/runner';
 import { protocolsFor, useStore, type LabState } from './store/useStore';
@@ -152,6 +153,7 @@ export function App() {
         <Inspector />
       </main>
       <Timeline />
+      <Tooltip />
       {customOpen && <ScenarioModal />}
       {lessonsOpen && <LessonPicker />}
     </div>

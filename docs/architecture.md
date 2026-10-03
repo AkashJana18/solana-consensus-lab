@@ -83,7 +83,7 @@ flowchart TB
 | `web/src/engine/` | Worker protocol, display clock, event buffer, breakpoints | The render loop |
 | `web/src/store/` | zustand store + `RunView` (events → panel state) | |
 | `web/src/render/` | PixiJS scene, pooled particles, ring layout, path interpolation | |
-| `web/src/components/` | TopBar + ClockReadout, Timeline, Inspector + NodePicker, Modal, the Transaction/Votor/Tower/Events/Metrics panels, lessons | |
+| `web/src/components/` | TopBar + ClockReadout, Timeline, Inspector + NodePicker, Modal, Tooltip (`data-tip` driven), the Transaction/Votor/Tower/Events/Metrics panels, lessons | |
 | `web/src/url/` | Address-bar state, share links, scenario compression | |
 
 ## 3. sim-core: the engine

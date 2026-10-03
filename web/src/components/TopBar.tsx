@@ -5,10 +5,10 @@ import { SPEEDS, useStore, type Mode } from '../store/useStore';
 import { isShareable, shareUrl } from '../url/sync';
 import { slotOf } from '../util/format';
 
-const MODES: { id: Mode; label: string }[] = [
-  { id: 'alpenglow', label: 'Alpenglow' },
-  { id: 'tower', label: 'TowerBFT' },
-  { id: 'compare', label: 'Compare' },
+const MODES: { id: Mode; label: string; hint: string }[] = [
+  { id: 'alpenglow', label: 'Alpenglow', hint: 'Alpenglow only (SIMD-0326)' },
+  { id: 'tower', label: 'TowerBFT', hint: 'TowerBFT only, the current mainnet protocol' },
+  { id: 'compare', label: 'Compare', hint: 'Both protocols side by side on the same scenario' },
 ];
 
 /**
@@ -96,7 +96,7 @@ export function TopBar() {
         </span>
       </div>
 
-      <label className="field">
+      <label className="field" data-tip="Scenario">
         <span>Scenario</span>
         <select value={isCustom ? '__custom' : scenarioName} onChange={(e) => onScenario(e.target.value)} data-testid="scenario-select">
           {scenarioNames.map((n) => (
@@ -110,13 +110,21 @@ export function TopBar() {
 
       <div className="segmented" role="radiogroup" aria-label="Protocol mode">
         {MODES.map((m) => (
-          <button key={m.id} role="radio" aria-checked={mode === m.id} className={mode === m.id ? 'on' : ''} onClick={() => set({ mode: m.id })} data-testid={`mode-${m.id}`}>
+          <button
+            key={m.id}
+            role="radio"
+            aria-checked={mode === m.id}
+            className={mode === m.id ? 'on' : ''}
+            onClick={() => set({ mode: m.id })}
+            data-tip={m.hint}
+            data-testid={`mode-${m.id}`}
+          >
             {m.label}
           </button>
         ))}
       </div>
 
-      <label className="field">
+      <label className="field" data-tip="Seed">
         <span>Seed</span>
         <input
           className="seed"
@@ -129,14 +137,14 @@ export function TopBar() {
         />
       </label>
 
-      <button onClick={() => set({ lessonsOpen: true })} title="Guided lessons" data-testid="lessons-open" className={lesson ? 'on' : ''}>
+      <button onClick={() => set({ lessonsOpen: true })} data-tip="Guided lessons" data-testid="lessons-open" className={lesson ? 'on' : ''}>
         <span aria-hidden>☰</span>
         <span className="lbl"> Lessons</span>
       </button>
 
       <div className="transport">
         <div className="share-anchor">
-          <button onClick={() => void share()} title="Copy a link to this exact moment" data-testid="share">
+          <button onClick={() => void share()} data-tip="Copy a link to this exact moment" data-testid="share">
             <span aria-hidden>⧉</span>
             <span className="lbl"> Share</span>
           </button>
@@ -146,18 +154,18 @@ export function TopBar() {
             </span>
           )}
         </div>
-        <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={playing ? 'Pause' : 'Play'} title="Space">
+        <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={playing ? 'Pause' : 'Play'} data-tip={`${playing ? 'Pause' : 'Play'} (Space)`}>
           {playing ? '❚❚' : '▶'}
         </button>
-        <button onClick={() => controller.stepEvent()} title="Step one engine event (.)" data-testid="step-event">
+        <button onClick={() => controller.stepEvent()} data-tip="Step one engine event (.)" data-testid="step-event">
           <span aria-hidden>⏵</span>
           <span className="lbl"> event</span>
         </button>
-        <button onClick={() => controller.stepSlot()} title="Advance one slot (→)" data-testid="step-slot">
+        <button onClick={() => controller.stepSlot()} data-tip="Advance one slot (→)" data-testid="step-slot">
           <span aria-hidden>⏵⏵</span>
           <span className="lbl"> slot</span>
         </button>
-        <select value={speed} onChange={(e) => set({ speed: Number(e.target.value) })} aria-label="Playback speed" data-testid="speed">
+        <select value={speed} onChange={(e) => set({ speed: Number(e.target.value) })} aria-label="Playback speed" data-tip="Playback speed" data-testid="speed">
           {SPEEDS.map((v) => (
             <option key={v} value={v}>
               {v}×

@@ -272,6 +272,9 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 .tl-stage-rail { stroke: var(--grid); stroke-width: 1; }
 .tl-proto { fill: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; font-family: var(--font); }
 
+/* hover/focus tooltip for the toolbar's icon-only controls; see components/Tooltip.tsx */
+.tooltip { position: fixed; z-index: 20; background: var(--surface-3); border: 1px solid var(--border-strong); border-radius: 6px; color: var(--ink); padding: 4px 9px; font-size: 12px; line-height: 1.35; white-space: nowrap; pointer-events: none; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45); }
+
 /* modal */
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6); display: grid; place-items: center; z-index: 10; }
 .modal { width: min(720px, 90vw); background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 12px; padding: 18px 20px; display: grid; gap: 10px; }

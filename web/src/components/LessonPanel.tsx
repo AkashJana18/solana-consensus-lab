@@ -36,7 +36,7 @@ export function LessonPanel() {
             {lesson.title}
           </div>
         </div>
-        <button onClick={() => lessonRunner.exit()} title="Exit lesson" data-testid="lesson-exit">
+        <button onClick={() => lessonRunner.exit()} data-tip="Exit lesson" data-testid="lesson-exit">
           ✕
         </button>
       </header>
@@ -45,7 +45,7 @@ export function LessonPanel() {
         {lesson.steps.map((st, k) => {
           const state = k === i ? 'current' : prog.hits[st.id] !== undefined ? 'done' : 'todo';
           return (
-            <li key={st.id} className={`lesson-dot ${state}`} data-testid={`lesson-step-${k}`} data-state={state} title={st.title}>
+            <li key={st.id} className={`lesson-dot ${state}`} data-testid={`lesson-step-${k}`} data-state={state} data-tip={st.title}>
               <button onClick={() => lessonRunner.goTo(k)} aria-label={`Step ${k + 1}: ${st.title}`} disabled={state === 'todo' && k > i + 1} />
             </li>
           );
@@ -112,17 +112,17 @@ export function LessonPanel() {
           ← Back
         </button>
         {step && phase === 'predict' && (
-          <button className="primary" onClick={() => lessonRunner.run()} disabled={step.question !== undefined && chosen === undefined} data-testid="lesson-run" title="Enter">
+          <button className="primary" onClick={() => lessonRunner.run()} disabled={step.question !== undefined && chosen === undefined} data-testid="lesson-run" data-tip="Run (Enter)">
             Run ▶
           </button>
         )}
         {step && phase === 'running' && (
-          <button onClick={() => lessonRunner.goTo(i)} data-testid="lesson-restart" title="Rewind to the previous stop and re-arm">
+          <button onClick={() => lessonRunner.goTo(i)} data-testid="lesson-restart" data-tip="Rewind to the previous stop and re-arm">
             Restart step
           </button>
         )}
         {(phase === 'reveal' || !step) && i < n && (
-          <button className="primary" onClick={() => lessonRunner.next()} data-testid="lesson-next" title="Enter">
+          <button className="primary" onClick={() => lessonRunner.next()} data-testid="lesson-next" data-tip="Next step (Enter)">
             {i < 0 ? 'Start' : 'Next →'}
           </button>
         )}
