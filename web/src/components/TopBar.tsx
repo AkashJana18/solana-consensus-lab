@@ -104,15 +104,17 @@ export function TopBar() {
       </button>
 
       <div className="transport">
-        {toast && (
-          <span className="chip toast" role="status" data-testid="share-toast">
-            {toast}
-          </span>
-        )}
-        <button onClick={() => void share()} title="Copy a link to this exact moment" data-testid="share">
-          <span aria-hidden>⧉</span>
-          <span className="lbl"> Share</span>
-        </button>
+        <div className="share-anchor">
+          <button onClick={() => void share()} title="Copy a link to this exact moment" data-testid="share">
+            <span aria-hidden>⧉</span>
+            <span className="lbl"> Share</span>
+          </button>
+          {toast && (
+            <span className="toast" role="status" data-testid="share-toast">
+              {toast}
+            </span>
+          )}
+        </div>
         <button className="primary" onClick={() => controller.toggle()} data-testid="play" aria-label={s.playing ? 'Pause' : 'Play'} title="Space">
           {s.playing ? '❚❚' : '▶'}
         </button>
