@@ -48,10 +48,6 @@ export class ParticleSystem {
     });
   }
 
-  setOptions(opts: ParticleOptions): void {
-    this.opts = opts;
-  }
-
   get count(): number {
     return this.live.length;
   }

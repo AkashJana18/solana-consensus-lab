@@ -56,7 +56,6 @@ export interface LabState {
   restoreLesson: { id: string; step: number } | null;
 
   set: (patch: Partial<LabState>) => void;
-  setRun: (p: Protocol, view: RunView) => void;
   resetRuns: (protocols: Protocol[]) => void;
 }
 
@@ -85,9 +84,5 @@ export const useStore = create<LabState>((set) => ({
   restoreLesson: null,
 
   set: (patch) => set(patch),
-  setRun: (p, view) => set((s) => ({ runs: { ...s.runs, [p]: view } })),
   resetRuns: (protocols) => set({ runs: Object.fromEntries(protocols.map((p) => [p, emptyView(p)])) }),
 }));
-
-export const selectRun = (p: Protocol) => (s: LabState) => s.runs[p];
-export const selectPrimaryProtocol = (s: LabState): Protocol => (s.mode === 'tower' ? 'tower' : 'alpenglow');

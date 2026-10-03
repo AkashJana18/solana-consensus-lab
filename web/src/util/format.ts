@@ -30,8 +30,4 @@ export function fmtInt(n: number | null | undefined): string {
   return n === null || n === undefined ? '—' : n.toLocaleString();
 }
 
-export function pct(x: number): string {
-  return `${x.toFixed(x >= 10 ? 0 : 1)}%`;
-}
-
 export const PROTOCOL_LABEL = { alpenglow: 'Alpenglow', tower: 'TowerBFT' } as const;

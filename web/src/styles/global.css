@@ -200,7 +200,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 .tally-threshold { stroke: var(--ink-2); stroke-width: 1px; stroke-dasharray: 2 2; }
 .tally-thresholds { position: relative; height: 12px; font-size: 9px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .tally-thresholds span { position: absolute; transform: translateX(-50%); white-space: nowrap; top: -6px; }
-.pool-slot .tally + .tally .tally-thresholds, .pool-slot .tally:first-of-type .tally-thresholds { display: none; }
+/* The threshold axis shows on the first tally and the last, never on the ones between.
+   This also used to list .pool-slot .tally:first-of-type, which cannot match anything:
+   the first <div> inside a .pool-slot is .pool-head, not a .tally. */
+.pool-slot .tally + .tally .tally-thresholds { display: none; }
 .pool-slot .tally:last-child .tally-thresholds { display: block; }
 
 /* lockouts */

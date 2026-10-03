@@ -55,7 +55,3 @@ export function kindColor(kind: string): number {
   }
 }
 
-export function kindHex(kind: string): string {
-  const f = kindFamily(kind);
-  return f === 'other' ? HEX.nodeStroke : HEX[f];
-}
