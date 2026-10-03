@@ -33,7 +33,7 @@ cd web && bun install
 bun run dev        # http://localhost:5173
 bun run test       # vitest unit tests
 bun run e2e        # Playwright end-to-end tests (bunx playwright install chromium once)
-bun run build      # static site in web/dist (deployed to GitHub Pages by CI)
+bun run build      # static site in web/dist (production deploys from main via Vercel)
 ```
 
 The UI runs the Rust core as WebAssembly inside a Web Worker; see `web/README.md` for the render loop, lesson authoring and the URL scheme, and `docs/wasm-api.md` for the engine contract.

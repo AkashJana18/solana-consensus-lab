@@ -45,7 +45,8 @@ cargo run -p sim-cli -- run --scenario leader-down --protocol alpenglow --events
 `wasm-bindgen-cli` exactly 0.2.128, matching the pinned crate dep). `tsc` and
 vitest both fail without it. There is no lint step; `bun run build`'s tsc pass
 is the type check. CI (`.github/workflows/ci.yml`) runs cargo test → wasm build
-→ (bun test + bun build) and (Playwright e2e) in parallel → GitHub Pages deploy.
+→ (bun test + bun build) and (Playwright e2e) in parallel. Production deploys
+from `main` through the linked Vercel project.
 
 `web/package.json` pins `@swc/core ~1.12.14` via `overrides` because
 `vite-plugin-top-level-await` breaks with 1.16. Leave it.
@@ -164,3 +165,9 @@ tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression)
 `web/e2e/screenshots/` that the README embeds, `lesson.spec.ts` follows the
 Skip-certificates lesson, `share.spec.ts` restores a share link. The Events feed
 is virtualised, so e2e assertions on it can only see the newest rows.
+
+## Note
+
+1. Keep commits & PRs as modular as possible.
+
+2. Write detailed commits.
