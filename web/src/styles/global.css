@@ -266,12 +266,16 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .type-tx_stage .chip-dot, .legend i { box-shadow: none !important; }
 }
-@media (max-width: 1200px) {
-  .main { grid-template-columns: 1fr 340px; }
-  .main.lesson { grid-template-columns: 300px 1fr 340px; }
-  .legend { display: none; }
+/* The top bar's min-content width is ~1400px, so labels must collapse before that,
+   not at the layout breakpoint below — otherwise 1024-1400px clips the readout. */
+@media (max-width: 1400px) {
   .topbar { gap: 8px; }
   .transport .lbl, .field > span, .brand span:not(.brand-mark) { display: none; }
   .readout { min-width: 0; }
   .segmented button { padding: 5px 8px; }
+}
+@media (max-width: 1200px) {
+  .main { grid-template-columns: 1fr 340px; }
+  .main.lesson { grid-template-columns: 300px 1fr 340px; }
+  .legend { display: none; }
 }
