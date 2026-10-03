@@ -21,7 +21,7 @@ function ownsKey(target: EventTarget | null, key: string): boolean {
   if (!el || typeof el.closest !== 'function') return false;
   if (el.closest('input, textarea, select, [contenteditable="true"]')) return true;
   if (ACTIVATION_KEYS.has(key) && el.closest('button, a[href], summary, [role="button"], [role="tab"], [role="radio"], [role="menuitem"], [role="switch"]')) return true;
-  if (ARROW_KEYS.has(key) && el.closest('[role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"]')) return true;
+  if (ARROW_KEYS.has(key) && el.closest('[role="tablist"], [role="radiogroup"], [role="slider"], [role="listbox"], .modal-backdrop')) return true;
   return false;
 }
 

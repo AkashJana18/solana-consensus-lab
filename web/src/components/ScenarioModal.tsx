@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { validate } from '../engine/wasmMain';
 import { useStore } from '../store/useStore';
+import { Modal } from './Modal';
 
 /** Paste-a-scenario dialog. Validation is done by the engine itself (`validateScenario`). */
 export function ScenarioModal() {
@@ -24,35 +25,35 @@ export function ScenarioModal() {
   };
 
   return (
-    <div className="modal-backdrop" onClick={() => s.set({ customOpen: false })}>
-      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="custom-title" onClick={(e) => e.stopPropagation()}>
-        <h2 id="custom-title">Custom scenario JSON</h2>
-        <p className="muted">
-          Same schema as <code>scenarios/*.json</code>: <code>name</code>, <code>duration_ms</code>, <code>validators</code>, <code>faults</code>
-          (offline / partition / delay / drop), <code>hero_tx</code>, <code>params</code>. The seed field is overridden by the seed input.
-        </p>
-        <textarea
-          value={text}
-          onChange={(e) => {
-            setText(e.target.value);
-            setError(null);
-          }}
-          spellCheck={false}
-          rows={18}
-        />
-        {error && (
-          <div className="error-box" role="alert">
-            {error}
-          </div>
-        )}
-        <div className="modal-actions">
-          <button onClick={() => s.set({ customOpen: false })}>Cancel</button>
-          <button className="primary" onClick={apply}>
-            Validate &amp; load
-          </button>
+    <Modal labelledBy="custom-title" onClose={() => s.set({ customOpen: false })}>
+      <h2 id="custom-title">Custom scenario JSON</h2>
+      <p className="muted">
+        Same schema as <code>scenarios/*.json</code>: <code>name</code>, <code>duration_ms</code>, <code>validators</code>, <code>faults</code>
+        (offline / partition / delay / drop), <code>hero_tx</code>, <code>params</code>. The seed field is overridden by the seed input.
+      </p>
+      <textarea
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setError(null);
+        }}
+        spellCheck={false}
+        rows={18}
+        data-autofocus
+        aria-label="Custom scenario JSON"
+      />
+      {error && (
+        <div className="error-box" role="alert">
+          {error}
         </div>
+      )}
+      <div className="modal-actions">
+        <button onClick={() => s.set({ customOpen: false })}>Cancel</button>
+        <button className="primary" onClick={apply}>
+          Validate &amp; load
+        </button>
       </div>
-    </div>
+    </Modal>
   );
 }
 
