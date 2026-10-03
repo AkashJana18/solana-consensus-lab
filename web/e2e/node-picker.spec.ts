@@ -47,3 +47,24 @@ test('a validator can be picked without a pointer, and the canvas names itself',
 
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+test('an impossible node from the URL is dropped, not left dangling', async ({ page }) => {
+  // `node` is the one URL field that is not a closed set: it can name a validator that
+  // this scenario does not have. The panels used to come up empty with no explanation.
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  await page.goto('/?scenario=happy-path&tab=votor&node=999');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+  await expect(page.getByTestId('node-picker')).toHaveValue('');
+  await expect(page.getByRole('heading', { name: /No node selected/ })).toBeVisible();
+  await expect(page).toHaveURL(/node=none/);
+
+  // A valid node in the same scenario still works.
+  await page.goto('/?scenario=happy-path&tab=votor&node=3');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+  await expect(page.getByTestId('node-picker')).toHaveValue('3');
+  await expect(page.locator('.panel')).toContainText('Node 3');
+
+  expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
+});

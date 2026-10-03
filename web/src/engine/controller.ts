@@ -142,6 +142,11 @@ export class Controller {
     run.view = { ...emptyView(run.protocol, meta), rpcNode: meta.scenario.hero_tx.rpc_node ?? meta.n - 1 };
     run.dirty = true;
     run.scene?.setMeta(meta);
+    // `node` arrives from the URL unchecked, and a node that does not exist has no state
+    // to inspect: the panels came up empty with no indication why. meta is the first
+    // point where the validator count is known, so drop an impossible selection here.
+    const s = useStore.getState();
+    if (s.selectedNode !== null && (s.selectedNode < 0 || s.selectedNode >= meta.n)) s.set({ selectedNode: null });
   }
 
   attachScene(protocol: Protocol, scene: Scene | null): void {

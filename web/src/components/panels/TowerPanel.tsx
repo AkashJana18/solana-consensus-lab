@@ -39,7 +39,7 @@ export function TowerPanel() {
   return (
     <div className="tower-panel">
       <div className="row-between">
-        <h3>Node {selected} · lockout tower</h3>
+        <h3>{selected === null ? 'No node selected' : `Node ${selected}`} · lockout tower</h3>
         <span className="muted small">
           head {head ? `slot ${head.slot} · ${shortHash(head.hash)}` : '—'}
           {insp && ` · depth-8 threshold ${insp.threshold_ok ? 'met' : 'not met'}`}

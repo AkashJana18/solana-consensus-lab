@@ -3,8 +3,22 @@
 import { useStore, type LabState } from '../store/useStore';
 import { canCompress, compressScenario, formatUrlState, parseUrlState, type UrlState } from './state';
 
-/** scenarioJson -> compressed form, so the URL can be rewritten synchronously once known. */
-const compressed = new Map<string, string>();
+/**
+ * scenarioJson -> compressed form, so the URL can be rewritten synchronously once known.
+ * Only the current custom scenario is ever needed, and a session can edit it many times,
+ * so this keeps just the latest: keyed by the full JSON it grew without bound.
+ */
+let compressedJson: string | null = null;
+let compressedValue: string | null = null;
+
+function compressedFor(json: string): string | undefined {
+  return compressedJson === json ? compressedValue ?? undefined : undefined;
+}
+
+function rememberCompressed(json: string, value: string): void {
+  compressedJson = json;
+  compressedValue = value;
+}
 
 /** Last display time (µs) the clock was paused at; `t` in the URL never tracks a playing clock. */
 let pausedTimeUs: number | null = null;
@@ -12,7 +26,7 @@ let pausedTimeUs: number | null = null;
 export function currentUrlState(s: LabState, tUs: number | null): UrlState {
   const st: UrlState = {};
   if (s.isCustom) {
-    const c = compressed.get(s.scenarioJson);
+    const c = compressedFor(s.scenarioJson);
     if (c) st.s = c;
   } else st.scenario = s.scenarioName;
   st.seed = s.seed;
@@ -37,7 +51,7 @@ export function isShareable(s: LabState): boolean {
 
 /** Full absolute link for the current state at sim time `tUs`. Compresses a custom scenario on demand. */
 export async function shareUrl(s: LabState, tUs: number): Promise<string> {
-  if (s.isCustom && !compressed.has(s.scenarioJson)) compressed.set(s.scenarioJson, await compressScenario(s.scenarioJson));
+  if (s.isCustom && !compressedFor(s.scenarioJson)) rememberCompressed(s.scenarioJson, await compressScenario(s.scenarioJson));
   return location.origin + location.pathname + formatUrlState(currentUrlState(s, tUs)) + location.hash;
 }
 
@@ -65,11 +79,11 @@ export function startUrlSync(): () => void {
 
   const unsub = useStore.subscribe((s, prev) => {
     if (!s.wasmReady) return;
-    if (s.isCustom && canCompress && !compressed.has(s.scenarioJson)) {
+    if (s.isCustom && canCompress && !compressedFor(s.scenarioJson)) {
       const json = s.scenarioJson;
       void compressScenario(json)
         .then((c) => {
-          compressed.set(json, c);
+          rememberCompressed(json, c);
           schedule();
         })
         .catch(() => undefined);

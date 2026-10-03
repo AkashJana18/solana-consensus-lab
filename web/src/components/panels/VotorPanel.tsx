@@ -42,7 +42,7 @@ export function VotorPanel() {
     <div className="votor-panel">
       <div className="row-between">
         <h3>
-          Node {selected} · Votor flags
+          {selected === null ? 'No node selected' : `Node ${selected}`} · Votor flags
         </h3>
         <span className="muted small">
           finalized up to slot {insp.highest_finalized_slot} · hero block {shortHash(insp.hero_block)}
