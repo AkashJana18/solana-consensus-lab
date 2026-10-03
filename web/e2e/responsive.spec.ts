@@ -62,3 +62,31 @@ test('the inspector fits its column and every tab stays reachable', async ({ pag
     }
   }
 });
+
+test('the events feed fills its panel and scrolls itself', async ({ page }) => {
+  // Single mode renders an <h3> header, compare mode a segmented control of a different
+  // height. The feed must fit both without the panel growing a second scrollbar.
+  for (const mode of ['alpenglow', 'compare']) {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`/?scenario=happy-path&mode=${mode}&tab=events&speed=20`);
+    await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+    await page.getByTestId('play').click();
+    await expect(page.getByTestId('event-feed')).toContainText('ms', { timeout: 20_000 });
+
+    const geo = await page.evaluate(() => {
+      const feed = document.querySelector('.feed') as HTMLElement;
+      const panel = document.querySelector('.panel') as HTMLElement;
+      return {
+        feed: Math.round(feed.getBoundingClientRect().height),
+        panelOverflows: panel.scrollHeight > panel.clientHeight + 1,
+        rows: document.querySelectorAll('.feed-row').length,
+        spacer: Math.round((feed.firstElementChild as HTMLElement).getBoundingClientRect().height),
+      };
+    });
+    // The panel does not scroll: the feed does, inside its 1fr track.
+    expect(geo.panelOverflows, `the inspector panel scrolls in ${mode} mode`).toBe(false);
+    // Virtualisation is live: many events, a screenful of rows, a tall scroll spacer.
+    expect(geo.rows).toBeGreaterThan(4);
+    expect(geo.spacer).toBeGreaterThan(geo.feed * 2);
+  }
+});

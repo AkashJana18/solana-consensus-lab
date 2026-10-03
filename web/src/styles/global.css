@@ -228,7 +228,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 
 /* events feed */
 .events-panel { display: grid; grid-template-rows: auto 1fr; height: 100%; min-height: 0; }
-.feed { overflow-y: auto; min-height: 0; height: calc(100vh - 52px - 100px - 96px); border-top: 1px solid var(--border); }
+/* Height comes from the .events-panel 1fr track: a hand-tuned calc(100vh - ...) here was
+   already ~12px wrong in single mode and ~17px short in compare mode, where the header
+   row is a segmented control rather than an <h3>. */
+.feed { overflow-y: auto; min-height: 0; border-top: 1px solid var(--border); }
 .feed-row { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: 14px 1fr auto; gap: 8px; align-items: center; padding: 0 6px; border-bottom: 1px solid var(--border); }
 .feed-body { min-width: 0; }
 .feed-title { font-size: 12px; }
