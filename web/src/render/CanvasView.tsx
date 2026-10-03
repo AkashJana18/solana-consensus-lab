@@ -2,6 +2,7 @@ import { Application } from 'pixi.js';
 import { useEffect, useRef } from 'react';
 import { controller } from '../engine/controller';
 import type { Protocol } from '../engine/types';
+import type { RunView } from '../store/runView';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useStore } from '../store/useStore';
 import { PROTOCOL_LABEL } from '../util/format';
@@ -16,6 +17,17 @@ const LEGEND: { label: string; color: string; glow?: boolean }[] = [
   { label: 'repair', color: HEX.repair },
   { label: 'hero tx', color: HEX.hero, glow: true },
 ];
+
+/** One sentence describing what the canvas is currently showing, for assistive tech. */
+function describe(protocol: Protocol, run: RunView | undefined, selected: number | null): string {
+  if (!run?.meta) return `${PROTOCOL_LABEL[protocol]} network, loading`;
+  const bits = [`slot ${run.currentSlot}`, `leader ${run.leader ?? 'unknown'}`, `${run.meta.n} validators`];
+  if (run.offline.size) bits.push(`${run.offline.size} offline`);
+  if (run.partition) bits.push('network partitioned');
+  if (run.heroSlot !== null) bits.push(`hero tx in slot ${run.heroSlot}`);
+  bits.push(selected === null ? 'no node selected' : `node ${selected} selected`);
+  return `${PROTOCOL_LABEL[protocol]} network: ${bits.join(', ')}`;
+}
 
 /** Mounts one Pixi application for a protocol and wires clicks to node selection. */
 export function CanvasView({ protocol }: { protocol: Protocol }) {
@@ -80,6 +92,16 @@ export function CanvasView({ protocol }: { protocol: Protocol }) {
       app?.destroy(true);
     };
   }, [protocol, reduced]);
+
+  // A Pixi canvas carries no accessible name of its own, so give it one built from the
+  // state it is drawing. Assigned in an effect because the element is created by Pixi.
+  const label = describe(protocol, run, selected);
+  useEffect(() => {
+    const canvas = host.current?.querySelector('canvas');
+    if (!canvas) return;
+    canvas.setAttribute('role', 'img');
+    canvas.setAttribute('aria-label', label);
+  }, [label]);
 
   const meta = run?.meta;
   const leader = run?.leader;

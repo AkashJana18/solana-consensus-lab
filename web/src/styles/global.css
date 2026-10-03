@@ -142,7 +142,9 @@ button.primary:hover { filter: brightness(1.1); }
 .readout-slot { margin-left: 10px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 8px; border-radius: 999px; font-size: 12px; }
 
 /* ---------- inspector ---------- */
-.inspector { display: grid; grid-template-rows: auto 1fr; min-height: 0; border-left: 1px solid var(--border); background: var(--bg); }
+.inspector { display: grid; grid-template-rows: auto auto 1fr; min-height: 0; border-left: 1px solid var(--border); background: var(--bg); }
+.node-picker { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+.node-picker select { flex: 1 1 auto; min-width: 0; font-size: 12px; }
 .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 6px; }
 .tabs button { background: transparent; border: 0; border-radius: 0; padding: 10px 12px; color: var(--muted); border-bottom: 2px solid transparent; }
 .tabs button.on { color: var(--ink); border-bottom-color: var(--accent); }
