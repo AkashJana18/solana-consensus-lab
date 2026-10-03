@@ -55,7 +55,7 @@ code { font-family: var(--mono); font-size: 12px; background: var(--surface-3); 
 sup { font-size: 9px; }
 
 /* ---------- layout ---------- */
-.app { display: grid; grid-template-rows: 52px 1fr 100px; height: 100%; min-width: 1024px; }
+.app { display: grid; grid-template-rows: 52px 1fr 100px; height: 100%; min-width: 0; }
 .main { display: grid; grid-template-columns: 1fr 400px; min-height: 0; border-top: 1px solid var(--border); }
 .canvases { display: grid; grid-template-columns: 1fr; min-height: 0; min-width: 0; background: var(--surface); position: relative; }
 .canvases.compare { grid-template-columns: 1fr 1fr; }
@@ -292,4 +292,29 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .main { grid-template-columns: 1fr 340px; }
   .main.lesson { grid-template-columns: 300px 1fr 340px; }
   .legend { display: none; }
+}
+/* Narrow: stack instead of clipping. The app used to carry min-width: 1024px while
+   body has overflow: hidden, so below that the right-hand column was unreachable --
+   124px gone at 900px, 256px at 768px, with no scrollbar to recover it. index.html
+   ships width=device-width, so phones landed here. */
+@media (max-width: 1023px) {
+  .main { grid-template-columns: 1fr; grid-template-rows: minmax(200px, 1fr) minmax(0, 44vh); }
+  .main.lesson { grid-template-columns: 1fr; grid-template-rows: auto minmax(160px, 1fr) minmax(0, 38vh); }
+  .inspector { border-left: 0; border-top: 1px solid var(--border); }
+  .lesson-panel { border-right: 0; border-bottom: 1px solid var(--border); }
+  .lesson-panel { max-height: 42vh; }
+  /* Compare mode side by side would leave each canvas ~190px wide; stack them instead. */
+  .canvases.compare { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
+  .canvases.compare .canvas-wrap + .canvas-wrap { border-left: 0; border-top: 1px solid var(--border); }
+  .modal { width: min(720px, 94vw); max-height: 90vh; overflow: auto; }
+  .canvas-caption { font-size: 11px; }
+}
+/* Once the layout stacks, the bar can no longer rely on the viewport: with its labels
+   collapsed it still needs ~930px, and its min-content was widening the whole app
+   (measured 930px of app in a 900px window). Hide the slot chip and let the bar scroll
+   inside its own row instead, so the document never scrolls sideways. */
+@media (max-width: 1023px) {
+  .topbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .topbar::-webkit-scrollbar { display: none; }
+  .readout-slot { display: none; }
 }

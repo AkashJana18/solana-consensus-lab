@@ -90,3 +90,39 @@ test('the events feed fills its panel and scrolls itself', async ({ page }) => {
     expect(geo.spacer).toBeGreaterThan(geo.feed * 2);
   }
 });
+
+test('the app stays usable below 1024px instead of clipping', async ({ page }) => {
+  // The app used to declare min-width: 1024px while body has overflow: hidden, so a
+  // narrower window simply cut the inspector off with no way to scroll to it.
+  for (const [width, height, mode] of [
+    [1024, 768, 'alpenglow'],
+    [900, 800, 'compare'],
+    [768, 1024, 'compare'],
+    [390, 844, 'alpenglow'],
+  ] as [number, number, string][]) {
+    await page.setViewportSize({ width, height });
+    await page.goto(`/?scenario=happy-path&mode=${mode}&tab=transaction`);
+    await expect(page.getByTestId('scenario-select')).toHaveValue('happy-path');
+    await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 20_000 });
+
+    const geo = await page.evaluate(() => ({
+      doc: document.documentElement.scrollWidth,
+      inner: window.innerWidth,
+      canvases: [...document.querySelectorAll('.canvas-host')].map((h) => ({
+        host: h.clientWidth,
+        canvas: Math.round(h.querySelector('canvas')!.getBoundingClientRect().width),
+      })),
+    }));
+    expect(geo.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(geo.inner);
+    expect(geo.canvases.length, `no canvas mounted at ${width}px`).toBeGreaterThan(0);
+    for (const c of geo.canvases) expect(c.canvas, `a canvas does not fill its host at ${width}px`).toBe(c.host);
+
+    // The inspector, its tabs and the timeline are all still reachable.
+    await expect(page.locator('.inspector')).toBeInViewport();
+    await expect(page.getByTestId('timeline')).toBeInViewport();
+    await page.getByTestId('tab-metrics').click();
+    await expect(page.getByTestId('tab-metrics')).toHaveAttribute('aria-selected', 'true');
+    await page.getByTestId('node-picker').selectOption('3');
+    await expect(page.getByTestId('node-picker')).toHaveValue('3');
+  }
+});
