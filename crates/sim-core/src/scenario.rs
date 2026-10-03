@@ -9,7 +9,7 @@ pub const STAKE_UNITS: u64 = 1_000_000;
 /// Scenarios shipped with the simulator (also embedded in the wasm build).
 pub const BUILTIN: &[(&str, &str)] = &[
     ("happy-path", include_str!("../../../scenarios/happy-path.json")),
-    ("ideal-fast", include_str!("../../../scenarios/ideal-fast.json")),
+    ("ideal", include_str!("../../../scenarios/ideal.json")),
     ("offline-25pct", include_str!("../../../scenarios/offline-25pct.json")),
     ("leader-down", include_str!("../../../scenarios/leader-down.json")),
     ("partition-heal", include_str!("../../../scenarios/partition-heal.json")),

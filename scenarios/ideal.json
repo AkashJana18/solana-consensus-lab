@@ -1,5 +1,5 @@
 {
-  "name": "ideal-fast",
+  "name": "ideal",
   "description": "Alpenglow's best case, and the number the white paper claims. Nothing is offline, there are no partitions and no packet loss, and the transaction is submitted at 550 ms so it rides the last slice of its block, paying almost none of the 400 ms it takes to assemble a block. Rotor distributes the block, 60% of the stake notarizes it, and the fast-finalization certificate (80% notarize votes) lands 150 ms later \u2014 min(\u03b480%, 2\u00b7\u03b460%) measured from the moment the block was distributed, the median the paper reports for randomly chosen leaders (Fig. 14). The median validator here finalizes 149 ms after it receives the block. TowerBFT confirms the same block at 887 ms and roots it only after 32 stacked votes, 12.4 s in. happy-path is the same healthy cluster, but there the transaction lands in the first slice and waits for the whole block, so it needs 450 ms.",
   "seed": 1,
   "duration_ms": 16000,

@@ -47,15 +47,15 @@ compressed in `s=`.
 | Scenario | Alpenglow: inclusion → finalized | TowerBFT: inclusion → confirmed | TowerBFT: inclusion → rooted |
 |---|---|---|---|
 | happy-path | 451 ms (fast path, 80%) | 513 ms | 12.7 s |
-| ideal-fast (tx rides the block's last slice) | 150 ms (fast path, 80%) | 187 ms | 12.4 s |
+| ideal (tx rides the block's last slice) | 150 ms (fast path, 80%) | 187 ms | 12.4 s |
 | offline-25pct | 563 ms (slow path, 60%+60%) | 493 ms | 17.8 s |
 | leader-down (tx sent into a dead window) | 452 ms after the next live leader | 350 ms | 12.5 s |
 | partition-heal (tx sent mid-partition) | 1.3 s after the heal (standstill re-broadcast, then 512 ms of consensus) | 495 ms | 12.7 s |
 | twenty-twenty (21% offline, then a partition) | 462 ms (slow path) | 489 ms | not within 14 s |
 
-`ideal-fast` and `happy-path` run on the same healthy cluster with the same 400 ms block time, so
+`ideal` and `happy-path` run on the same healthy cluster with the same 400 ms block time, so
 the 300 ms between them is not consensus: in `happy-path` the transaction lands in the *first*
-slice and waits for the leader to finish the block, in `ideal-fast` it is submitted at 550 ms and
+slice and waits for the leader to finish the block, in `ideal` it is submitted at 550 ms and
 rides the *last* slice, leaving only Votor — 60% notarize votes, then an 80% fast-finalization
 certificate 150 ms later. That is min(δ80%, 2·δ60%) measured from the moment the block was
 distributed, the median the Alpenglow white paper reports for randomly chosen leaders (§1.3,

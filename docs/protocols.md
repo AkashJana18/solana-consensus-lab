@@ -137,7 +137,7 @@ Tower vote tx = 300 bytes, Alpenglow vote = 150 bytes, certificate = 1000 bytes.
 block has been distributed* — min(δ80%, 2δ60%), §1.3 — and reports a median of
 roughly 150 ms for randomly chosen leaders (Fig. 14). This simulator can measure
 the same thing per validator (`BlockReceived` → `Commitment{Finalized}` on the
-same block): on the `ideal-fast` scenario the median validator finalizes 149 ms
+same block): on the `ideal` scenario the median validator finalizes 149 ms
 after it receives the block, because that transaction rides the block's last
 slice and so pays almost none of the Δblock assembly time. The `happy-path`
 transaction lands in the first slice, waits for the whole 400 ms block and then

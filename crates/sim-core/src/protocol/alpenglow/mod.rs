@@ -702,14 +702,14 @@ mod tests {
         assert!(sim.nodes.iter().all(|n| n.highest_finalized_slot.is_some()));
     }
 
-    /// The builtin "ideal-fast" scenario has to reproduce the white paper's headline number.
+    /// The builtin "ideal" scenario has to reproduce the white paper's headline number.
     /// The paper measures finalization *after a block has been distributed* — min(δ80%, 2δ60%),
     /// §1.3 — and reports a median of roughly 150 ms for randomly chosen leaders (Fig. 14). The
     /// scenario's transaction rides the block's last slice, so inclusion and distribution
     /// coincide; both the median node and the transaction must land on that number.
     #[test]
-    fn ideal_fast_matches_the_papers_150ms_median() {
-        let json = crate::scenario::builtin("ideal-fast").expect("ideal-fast is a builtin scenario");
+    fn ideal_matches_the_papers_150ms_median() {
+        let json = crate::scenario::builtin("ideal").expect("ideal is a builtin scenario");
         let (sim, tr) = run(json);
         let m = Metrics::from_trace(&tr);
         let hero_tx_ms = m.tx_stage_ms["finalized"] - m.tx_stage_ms["included_in_block"];
