@@ -77,6 +77,27 @@ test('a dialog traps focus, closes on Escape and restores focus', async ({ page 
   await expect(page.getByTestId('scenario-select')).toBeFocused();
 });
 
+test('keyboard focus is visible on every control it lands on', async ({ page }) => {
+  await page.goto('/?scenario=happy-path');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+
+  const focusRing = () =>
+    page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el || el === document.body) return null;
+      const cs = getComputedStyle(el);
+      return { tag: `${el.tagName}.${el.className.split(' ')[0]}`, style: cs.outlineStyle, width: cs.outlineWidth };
+    });
+
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press('Tab');
+    const ring = await focusRing();
+    expect(ring, 'Tab walked off into nothing').not.toBeNull();
+    expect(ring!.style, `${ring!.tag} has no focus ring`).toBe('solid');
+    expect(ring!.width, `${ring!.tag} focus ring is not 2px`).toBe('2px');
+  }
+});
+
 test('Space on a focused lesson card opens that lesson rather than starting playback', async ({ page }) => {
   await page.goto('/?scenario=happy-path');
   await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
