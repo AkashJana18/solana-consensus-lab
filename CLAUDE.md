@@ -162,9 +162,14 @@ seeds every run, so a newly found failure stays failing until fixed). Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
 `breakpoint` (every trigger), `markdown`, and `lessons` (registry integrity);
 `e2e/smoke.spec.ts` and `compare.spec.ts` write screenshots to
-`web/e2e/screenshots/` that the README embeds, `lesson.spec.ts` follows the
-Skip-certificates lesson, `share.spec.ts` restores a share link. The Events feed
-is virtualised, so e2e assertions on it can only see the newest rows.
+`web/e2e/screenshots/` that the README embeds (they rewrite them on every run,
+so expect them dirty after a local `bun run e2e`), `lesson.spec.ts` follows the
+Skip-certificates lesson, `share.spec.ts` restores a share link,
+`keyboard.spec.ts` holds the keyboard contract, `responsive.spec.ts` is the only
+guard on layout below the 1440px Playwright viewport, `timeline.spec.ts` covers
+the memoised layers, and `node-picker.spec.ts` covers the node picker and the
+canvas's accessible name. The Events feed is virtualised, so e2e assertions on it
+can only see the newest rows.
 
 ## Note
 

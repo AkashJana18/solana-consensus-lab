@@ -43,6 +43,19 @@ bun run e2e                      # Playwright (starts the dev server itself); al
   predict → run → reveal, Back to a recorded stop, outro, finish.
 - `e2e/share.spec.ts` opens a share link, checks every field was restored, and reads the link
   the Share button copies to the clipboard.
+- `e2e/keyboard.spec.ts` covers the keyboard contract: Space presses a focused control instead of
+  starting playback, a dialog traps focus and closes on Escape, every Tab stop has a visible focus
+  ring, and Space on a lesson card opens that lesson.
+- `e2e/responsive.spec.ts` is the layout guard: the top bar and inspector fit 1440/1366/1280/1200/1024,
+  the events feed fills its panel, and the app stays usable at 1024/900/768/390 instead of clipping.
+- `e2e/timeline.spec.ts` asserts the bands render once, the playhead tracks a scrub and does not
+  drift while paused, and stage markers still appear as the run reaches them.
+- `e2e/node-picker.spec.ts` covers the keyboard node picker and the canvas's accessible name, and
+  that an impossible `?node=` from the URL is dropped rather than left dangling.
+
+The Playwright viewport is 1440x900, so `responsive.spec.ts` is the only thing that exercises a
+narrow window. `smoke.spec.ts` and `compare.spec.ts` rewrite the tracked screenshots on every run;
+expect `git status` to show them as modified after a local `bun run e2e`.
 
 ## Architecture
 
@@ -149,7 +162,8 @@ src/
   store/    useStore.ts (zustand) · runView.ts (event → view reducer)
   url/      state.ts (parse/format/compress) · sync.ts (store ⇄ address bar, share link)
   lessons/  types.ts · markdown.ts · runner.ts · index.ts · one lesson per file
-  components/ TopBar · Timeline · Inspector · ScenarioModal · LessonPanel · LessonPicker · Markdown
+  components/ TopBar (incl. ClockReadout) · Timeline · Inspector (incl. NodePicker)
+              Modal · ScenarioModal · LessonPanel · LessonPicker · Markdown
               panels/ Transaction · Votor · Tower · Events · Metrics
               charts/ TallyBar · LockoutBars · ForkTree · StatTile
 test/     vitest unit tests        e2e/  Playwright specs + screenshots

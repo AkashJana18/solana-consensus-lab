@@ -83,7 +83,7 @@ flowchart TB
 | `web/src/engine/` | Worker protocol, display clock, event buffer, breakpoints | The render loop |
 | `web/src/store/` | zustand store + `RunView` (events → panel state) | |
 | `web/src/render/` | PixiJS scene, pooled particles, ring layout, path interpolation | |
-| `web/src/components/` | Timeline, Inspector, Transaction/Votor/Tower/Events/Metrics panels, lessons | |
+| `web/src/components/` | TopBar + ClockReadout, Timeline, Inspector + NodePicker, Modal, the Transaction/Votor/Tower/Events/Metrics panels, lessons | |
 | `web/src/url/` | Address-bar state, share links, scenario compression | |
 
 ## 3. sim-core: the engine
@@ -300,7 +300,7 @@ flowchart TB
 | Property tests (`tests/properties.rs`) | safety (no conflicting finalization), liveness (≤20% offline), determinism across every builtin scenario | `cargo test -p sim-core --test properties` |
 | Web unit tests (`web/test/`) | event buffer, interpolation, tx stages, URL round trip, every breakpoint trigger, lesson registry | `cd web && bun run test` |
 | Type check + bundle (`bun run build`) | the mirror of the Rust types in `web/src/engine/types.ts` is exact | `cd web && bun run build` |
-| End-to-end (`web/e2e/`) | the app boots, the hero tx finalizes, a lesson runs end to end, a share link restores | `cd web && bun run e2e` |
+| End-to-end (`web/e2e/`) | the app boots, the hero tx finalizes, a lesson runs end to end, a share link restores, the keyboard contract holds, and the layout survives 1440 down to 390 px wide | `cd web && bun run e2e` |
 
 CI runs all of it, then builds the wasm first because the web build depends on it.
 
