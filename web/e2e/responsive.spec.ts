@@ -33,3 +33,32 @@ test('the top bar fits laptop widths without clipping the readout', async ({ pag
 
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+test('the inspector fits its column and every tab stays reachable', async ({ page }) => {
+  for (const width of [1440, 1200, 1024]) {
+    await page.setViewportSize({ width, height: 900 });
+    // ?tab=metrics is the widest tab, and it arrives here without a click.
+    await page.goto('/?scenario=happy-path&mode=compare&tab=metrics');
+    await expect(page.getByTestId('scenario-select')).toHaveValue('happy-path');
+    await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+
+    // The document must not scroll sideways: a fixed grid column cannot push it.
+    const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
+    expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
+
+    // The inspector column stays inside the viewport...
+    const box = await page.locator('.inspector').boundingBox();
+    expect(box!.x + box!.width, `the inspector runs past the viewport at ${width}px`).toBeLessThanOrEqual(width);
+
+    // ...and the selected tab is scrolled into view, not just reachable by scrolling.
+    await expect(page.getByTestId('tab-metrics')).toBeInViewport();
+    await expect(page.getByTestId('tab-metrics')).toHaveAttribute('aria-selected', 'true');
+
+    // Every tab can still be clicked, including the last one.
+    for (const tab of ['transaction', 'votor', 'tower', 'events', 'metrics']) {
+      const t = page.getByTestId(`tab-${tab}`);
+      await t.click();
+      await expect(t).toHaveAttribute('aria-selected', 'true');
+    }
+  }
+});

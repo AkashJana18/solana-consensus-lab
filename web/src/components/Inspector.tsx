@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { protocolsFor, useStore, type Tab } from '../store/useStore';
 import { controller } from '../engine/controller';
 import { EventsPanel } from './panels/EventsPanel';
@@ -18,14 +19,30 @@ export function Inspector() {
   const tab = useStore((s) => s.tab);
   const mode = useStore((s) => s.mode);
   const set = useStore((s) => s.set);
+  const tabsRef = useRef<HTMLElement>(null);
   const protocols = protocolsFor(mode);
   const tabs = TABS.filter((t) => !t.needs || protocols.includes(t.needs));
   const active = tabs.some((t) => t.id === tab) ? tab : 'transaction';
 
+  // The tab strip scrolls when the inspector is narrow, so keep the selected tab in view
+  // when it is chosen from a share link or a lesson step rather than by a click.
+  // Adjusting scrollLeft rather than calling scrollIntoView matters: in Chromium
+  // scrollIntoView also moves the sequential focus navigation starting point, which made
+  // the first Tab on the page begin in the middle of the tab strip.
+  useEffect(() => {
+    const strip = tabsRef.current;
+    const el = strip?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!strip || !el) return;
+    const s = strip.getBoundingClientRect();
+    const e = el.getBoundingClientRect();
+    if (e.left < s.left) strip.scrollLeft -= s.left - e.left;
+    else if (e.right > s.right) strip.scrollLeft += e.right - s.right;
+  }, [active, mode]);
+
   return (
     <aside className="inspector">
       <NodePicker />
-      <nav className="tabs" role="tablist">
+      <nav className="tabs" role="tablist" ref={tabsRef}>
         {tabs.map((t) => (
           <button key={t.id} role="tab" aria-selected={active === t.id} className={active === t.id ? 'on' : ''} onClick={() => set({ tab: t.id })} data-testid={`tab-${t.id}`}>
             {t.label}
@@ -72,7 +89,7 @@ function NodePicker() {
         <option value="">none</option>
         {meta.stakes.map((stake, id) => (
           <option key={id} value={id}>
-            node {id} · {(stake * 100).toFixed(1)}% stake{offline?.has(id) ? ' · offline' : ''}
+            node {id} · {((stake / meta.total_stake) * 100).toFixed(1)}% stake{offline?.has(id) ? ' · offline' : ''}
             {id === rpcNode ? ' · RPC' : ''}
           </option>
         ))}

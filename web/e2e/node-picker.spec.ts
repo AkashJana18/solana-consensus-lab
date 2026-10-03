@@ -12,13 +12,22 @@ test('a validator can be picked without a pointer, and the canvas names itself',
   // The canvas is an image to assistive tech, and says what it is showing.
   const canvas = page.locator('canvas[data-protocol="alpenglow"]');
   await expect(canvas).toHaveAttribute('role', 'img');
-  await expect(canvas).toHaveAttribute('aria-label', /Alpenglow network: slot \d+, leader \d+, 25 validators/);
-  await expect(canvas).toHaveAttribute('aria-label', /hero tx in slot \d+|no node selected|node \d+ selected/);
+  // Leader and slot are only known once the clock has moved past the first slot_start,
+  // so accept the initial state and then prove the label tracks the run.
+  await expect(canvas).toHaveAttribute('aria-label', /^Alpenglow network: (loading|slot \d+, leader (\d+|unknown), 25 validators)/);
 
-  // The picker lists every validator with its stake share.
+  await page.getByTestId('play').click();
+  await expect(canvas).toHaveAttribute('aria-label', /hero tx in slot \d+/);
+  await page.getByTestId('play').click();
+
+  // The picker lists every validator with its stake share. meta.stakes is in raw stake
+  // units, so the option text is the regression guard for normalising by total_stake.
   const picker = page.getByTestId('node-picker');
   await expect(picker).toBeVisible();
   await expect(picker.locator('option')).toHaveCount(26); // 25 validators + "none"
+  for (const pct of await picker.locator('option').evaluateAll((els) => els.map((e) => e.textContent ?? ''))) {
+    expect(pct, `"${pct}" is not a stake percentage`).toMatch(/^(none|node \d+ · \d+\.\d% stake.*)$/);
+  }
 
   // Keyboard-only selection: the Votor panel follows the picker.
   await page.getByTestId('tab-votor').click();
