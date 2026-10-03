@@ -86,3 +86,24 @@ test('a lesson restores the setup it replaced', async ({ page }) => {
   await expect(page.getByTestId('node-picker')).toHaveValue('4');
   await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
 });
+
+test('a lesson link does not carry a stale t', async ({ page }) => {
+  // ?t= alongside ?lesson= is ignored by the boot path, but it used to keep being written
+  // back on every store change, so sharing mid-lesson produced a link to the wrong moment.
+  await page.goto('/?lesson=skip-certs&t=2500&node=4');
+  await expect(page.getByTestId('lesson-panel')).toBeVisible();
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+  await expect(page).toHaveURL(/lesson=skip-certs/);
+  await expect(page).not.toHaveURL(/[?&]t=/);
+
+  // Step through a stop so the clock really moves, then check the URL is still clean.
+  await page.getByTestId('lesson-next').click();
+  await expect(page.getByTestId('lesson-panel')).toHaveAttribute('data-phase', 'reveal', { timeout: 20_000 });
+  await expect(page).not.toHaveURL(/[?&]t=/);
+  await expect(page).toHaveURL(/lesson=skip-certs/);
+
+  // Leaving the lesson hands the clock back to the URL again.
+  await page.getByTestId('lesson-exit').click();
+  await expect(page).not.toHaveURL(/lesson=/);
+  await expect(page).toHaveURL(/[?&]t=/);
+});

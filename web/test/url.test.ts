@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { canCompress, compressScenario, decompressScenario, formatUrlState, fromBase64Url, parseUrlState, toBase64Url, type UrlState } from '../src/url/state';
+import { currentUrlState } from '../src/url/sync';
+import type { LabState } from '../src/store/useStore';
 
 describe('parseUrlState / formatUrlState', () => {
   it('round-trips every field', () => {
@@ -55,5 +57,33 @@ describe('scenario compression', () => {
     const s = await compressScenario(json);
     expect(s).not.toMatch(/[+/=]/);
     expect(await decompressScenario(s)).toBe(json);
+  });
+});
+
+describe('currentUrlState', () => {
+  const base = {
+    isCustom: false,
+    scenarioName: 'happy-path',
+    seed: 1,
+    mode: 'alpenglow',
+    selectedNode: 0,
+    tab: 'transaction',
+    speed: 1,
+    lesson: null,
+  } as unknown as LabState;
+
+  it('writes t in ms for the paused moment it is given in us', () => {
+    expect(currentUrlState(base, 2_500_000).tMs).toBe(2500);
+    expect(currentUrlState(base, null).tMs).toBeUndefined();
+  });
+
+  it('drops t while a lesson owns the clock', () => {
+    // A lesson stops at its own recorded hit times, so a t from before it opened is a
+    // link to the wrong moment. lesson + step identify the stop instead.
+    const inLesson = { ...base, lesson: { id: 'skip-certs', step: 2, phase: 'reveal', answers: {}, hits: {}, events: {}, missed: {} } } as unknown as LabState;
+    const st = currentUrlState(inLesson, 2_500_000);
+    expect(st.tMs).toBeUndefined();
+    expect(st.lesson).toBe('skip-certs');
+    expect(st.step).toBe(2);
   });
 });

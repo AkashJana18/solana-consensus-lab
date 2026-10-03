@@ -17,7 +17,9 @@ export function currentUrlState(s: LabState, tUs: number | null): UrlState {
   } else st.scenario = s.scenarioName;
   st.seed = s.seed;
   st.mode = s.mode;
-  if (tUs !== null) st.tMs = tUs / 1000;
+  // A lesson owns the clock: it stops at its own recorded hit times, so a `t` carried
+  // over from before the lesson opened disagrees with what the lesson is showing.
+  if (tUs !== null && !s.lesson) st.tMs = tUs / 1000;
   st.node = s.selectedNode;
   if (s.tab !== 'transaction') st.tab = s.tab;
   if (s.speed !== 1) st.speed = s.speed;
@@ -41,8 +43,9 @@ export async function shareUrl(s: LabState, tUs: number): Promise<string> {
 
 /** Start mirroring the store into the URL. Returns a stop function. */
 export function startUrlSync(): () => void {
-  const initial = parseUrlState(location.search).tMs;
-  pausedTimeUs = initial === undefined ? null : Math.round(initial * 1000);
+  const initial = parseUrlState(location.search);
+  // Mirrors the boot path in App.tsx: `t` is ignored when the URL also names a lesson.
+  pausedTimeUs = initial.tMs === undefined || initial.lesson ? null : Math.round(initial.tMs * 1000);
 
   let timer: ReturnType<typeof setTimeout> | null = null;
   let last: string | null = null;
