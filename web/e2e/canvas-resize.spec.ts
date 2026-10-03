@@ -37,23 +37,25 @@ test('canvases track their host when the layout changes', async ({ page }) => {
   await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
   await expectCanvasesFit(page, 1);
 
-  // The lesson panel steals a grid column, then gives it back on exit.
+  // one-tx runs in compare mode, so the lesson takes over from the default alpenglow:
+  // the panel steals a grid column and the second canvas appears.
   await page.getByTestId('lessons-open').click();
   await page.getByTestId('lesson-pick-one-tx').click();
   await expect(page.getByTestId('lesson-panel')).toBeVisible();
+  await expect(page.getByTestId('mode-compare')).toHaveAttribute('aria-checked', 'true');
   await expectCanvasesFit(page, 2);
 
+  // Exiting gives the column back *and* restores the mode the lesson replaced.
   await page.getByTestId('lesson-exit').click();
   await expect(page.getByTestId('lesson-panel')).toHaveCount(0);
-  await expectCanvasesFit(page, 2);
-
-  // Switching mode halves (or doubles) the canvas that stays mounted.
-  await page.getByTestId('mode-alpenglow').click();
   await expect(page.getByTestId('mode-alpenglow')).toHaveAttribute('aria-checked', 'true');
   await expectCanvasesFit(page, 1);
 
+  // Switching mode halves (or doubles) the canvas that stays mounted.
   await page.getByTestId('mode-compare').click();
   await expectCanvasesFit(page, 2);
+  await page.getByTestId('mode-alpenglow').click();
+  await expectCanvasesFit(page, 1);
 
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });

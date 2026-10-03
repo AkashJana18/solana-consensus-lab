@@ -9,6 +9,12 @@ import type { LessonStep } from './types';
 
 class LessonRunner {
   private unsubConfigured: (() => void) | null = null;
+  /**
+   * The setup a lesson overwrote, so exit() can hand it back. A lesson forces its own
+   * scenario, protocol, seed, speed, tab and selected node; without this, finishing one
+   * silently discarded all of it.
+   */
+  private saved: Pick<LabState, 'mode' | 'scenarioName' | 'scenarioJson' | 'isCustom' | 'seed' | 'speed' | 'tab' | 'selectedNode'> | null = null;
 
   /** Open a lesson at `step` (-1 = intro). Reconfigures the simulation if the lesson's scenario differs. */
   open(id: string, step = -1): void {
@@ -24,6 +30,18 @@ class LessonRunner {
     controller.setBreakpoint(null);
     this.unsubConfigured?.();
     this.unsubConfigured = null;
+    // Only the first open of a session snapshots: picking another lesson from the picker
+    // must not overwrite what we are going to restore.
+    this.saved ??= {
+      mode: s.mode,
+      scenarioName: s.scenarioName,
+      scenarioJson: s.scenarioJson,
+      isCustom: s.isCustom,
+      seed: s.seed,
+      speed: s.speed,
+      tab: s.tab,
+      selectedNode: s.selectedNode,
+    };
 
     const progress: LessonProgress = { id, step: -1, phase: 'reveal', answers: {}, hits: {}, events: {}, missed: {} };
     s.set({ lesson: progress, lessonsOpen: false, speed: lesson.speed, tab: 'transaction', selectedNode: 0 });
@@ -104,12 +122,14 @@ class LessonRunner {
     if (prog) this.goTo(prog.step - 1);
   }
 
-  /** Leave the lesson; the scenario stays loaded. */
+  /** Leave the lesson, restoring the scenario, protocol, seed, speed, tab and node it replaced. */
   exit(): void {
     this.unsubConfigured?.();
     this.unsubConfigured = null;
     controller.setBreakpoint(null);
-    useStore.getState().set({ lesson: null });
+    const saved = this.saved;
+    this.saved = null;
+    useStore.getState().set({ lesson: null, ...saved });
   }
 
   private onHit(i: number, e: Traced | null, t: number): void {

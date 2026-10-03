@@ -59,3 +59,30 @@ test('the Skip certificates lesson runs end to end', async ({ page }) => {
 
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });
+
+test('a lesson restores the setup it replaced', async ({ page }) => {
+  await page.goto('/?scenario=happy-path&mode=tower&tab=events&speed=5&node=4');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+
+  await page.getByTestId('lessons-open').click();
+  await page.getByTestId('lesson-pick-skip-certs').click();
+
+  // The lesson has taken over the scenario, protocol, seed, speed, tab and node.
+  // skip-certs runs at 1x in alpenglow mode on leader-down, seed 1.
+  await expect(page.getByTestId('scenario-select')).toHaveValue('leader-down');
+  await expect(page.getByTestId('mode-alpenglow')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('speed')).toHaveValue('1');
+  await expect(page.getByTestId('tab-transaction')).toHaveClass(/on/);
+  await expect(page.getByTestId('node-picker')).toHaveValue('0');
+
+  await page.getByTestId('lesson-exit').click();
+  await expect(page.getByTestId('lesson-panel')).toHaveCount(0);
+
+  // ...and on the way out every one of them comes back.
+  await expect(page.getByTestId('scenario-select')).toHaveValue('happy-path');
+  await expect(page.getByTestId('mode-tower')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('speed')).toHaveValue('5');
+  await expect(page.getByTestId('tab-events')).toHaveClass(/on/);
+  await expect(page.getByTestId('node-picker')).toHaveValue('4');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+});
