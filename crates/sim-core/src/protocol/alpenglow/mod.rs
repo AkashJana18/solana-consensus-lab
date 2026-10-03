@@ -702,6 +702,68 @@ mod tests {
         assert!(sim.nodes.iter().all(|n| n.highest_finalized_slot.is_some()));
     }
 
+    /// The builtin "ideal-fast" scenario has to reproduce the white paper's headline number.
+    /// The paper measures finalization *after a block has been distributed* — min(δ80%, 2δ60%),
+    /// §1.3 — and reports a median of roughly 150 ms for randomly chosen leaders (Fig. 14). The
+    /// scenario's transaction rides the block's last slice, so inclusion and distribution
+    /// coincide; both the median node and the transaction must land on that number.
+    #[test]
+    fn ideal_fast_matches_the_papers_150ms_median() {
+        let json = crate::scenario::builtin("ideal-fast").expect("ideal-fast is a builtin scenario");
+        let (sim, tr) = run(json);
+        let m = Metrics::from_trace(&tr);
+        let hero_tx_ms = m.tx_stage_ms["finalized"] - m.tx_stage_ms["included_in_block"];
+        assert!(
+            (hero_tx_ms - 150.0).abs() < 10.0,
+            "hero tx took {hero_tx_ms} ms from inclusion to finality, expected ~150 ms"
+        );
+        assert!(m.certificates.get("fast_finalization").copied().unwrap_or(0) > 0, "expected the 80% fast path: {:?}", m.certificates);
+        assert_eq!(m.certificates.get("skip").copied().unwrap_or(0), 0, "ideal case must not skip a slot: {:?}", m.certificates);
+
+        // Median node: block in hand → block finalized, over every validator that saw the block.
+        let hero_slot = tr
+            .iter()
+            .find_map(|t| match &t.ev {
+                TraceEvent::TxStage { stage: TxStage::IncludedInBlock, slot: Some(s), .. } => Some(*s),
+                _ => None,
+            })
+            .expect("hero tx was never included");
+        let hero_hash = tr
+            .iter()
+            .find_map(|t| match &t.ev {
+                TraceEvent::BlockProduced { slot, hash, .. } if *slot == hero_slot => Some(*hash),
+                _ => None,
+            })
+            .expect("no block for the hero slot");
+        let mut got: BTreeMap<NodeId, (crate::time::SimTime, crate::time::SimTime)> = BTreeMap::new();
+        for t in &tr {
+            match &t.ev {
+                TraceEvent::BlockReceived { node, hash, .. } if *hash == hero_hash => {
+                    got.entry(*node).or_insert((t.t, t.t)).0 = t.t;
+                }
+                TraceEvent::Commitment { node, hash, level: Commitment::Finalized, .. } if *hash == hero_hash => {
+                    got.entry(*node).or_insert((t.t, t.t)).1 = t.t;
+                }
+                _ => {}
+            }
+        }
+        let mut deltas: Vec<f64> = got
+            .values()
+            .filter(|(recv, fin)| *fin > *recv)
+            .map(|(recv, fin)| crate::time::to_ms(fin - recv))
+            .collect();
+        deltas.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let mid = deltas.len() / 2;
+        let median = (deltas[mid - 1] + deltas[mid]) / 2.0;
+        assert_eq!(got.len(), 25, "every validator should have seen the hero block");
+        assert!(
+            (median - 150.0).abs() < 25.0,
+            "median node finalized {median} ms after receiving the block, expected ~150 ms"
+        );
+        assert_consistent_finality(&tr);
+        assert!(sim.nodes.iter().all(|n| n.highest_finalized_slot.is_some()));
+    }
+
     #[test]
     fn offline_quarter_uses_slow_path() {
         let (_, tr) = run(r#"{"name":"offline","duration_ms":8000,"validators":{"count":25},

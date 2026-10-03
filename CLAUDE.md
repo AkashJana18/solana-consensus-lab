@@ -52,19 +52,21 @@ is the type check. CI (`.github/workflows/ci.yml`) runs cargo test → wasm buil
 
 ## Architecture
 
-```
-scenarios/*.json ─▶ sim-core (Rust DES) ─▶ Vec<Traced> trace events
-                      protocol::alpenglow  (Rotor · Blokstor · Pool · Votor)
-                      protocol::tower      (PoH · Turbine · TowerState · ForkTree)
-                      ├─▶ sim-cli   (consensus-lab: run / inspect / replay / sweep)
-                      └─▶ sim-wasm  ─▶ web/ (Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React)
+```mermaid
+flowchart LR
+    SC["scenarios/*.json"] --> CORE["sim-core — deterministic Rust DES<br/>protocol::alpenglow — Rotor · Blokstor · Pool · Votor<br/>protocol::tower — PoH · Turbine · TowerState · ForkTree"]
+    CORE --> TRACE["Vec of Traced trace events"]
+    TRACE --> CLI["sim-cli — consensus-lab: run / inspect / replay / sweep"]
+    TRACE --> WASM["sim-wasm"] --> WEB["web — Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React"]
 ```
 
 **Everything observable is a trace event.** `crates/sim-core/src/trace.rs`
 defines `TraceEvent`; the CLI, `metrics.rs`, the property tests and the UI all
 consume only this stream. If the UI needs to show something new, add a trace
 event (and mirror it in `web/src/engine/types.ts` and `docs/wasm-api.md`),
-never a side channel.
+never a side channel. `docs/architecture.md` is the contributor map (Mermaid
+diagrams, module table, test map, "where do I add X", and the honest limits of
+the model) — keep it in step with this file's summary.
 
 **Engine / protocol split** (`sim.rs` + `protocol/mod.rs`). `Simulator<P>` owns
 the event heap, nodes, `Network`, `FaultState`, RNG and trace. A `Protocol`
@@ -86,10 +88,21 @@ rebuilds a fresh `Sim` and fast-forwards) both depend on it. Avoid `HashMap`
 iteration order in anything that affects behavior (code uses `BTreeMap`/`BTreeSet`).
 `Simulator` is fully serde-serializable for `snapshot`/`restore`.
 
-**Scenarios** are JSON with defaults for every field (`scenario.rs`). The five
+**Scenarios** are JSON with defaults for every field (`scenario.rs`). The six
 in `scenarios/` are `include_str!`-embedded as `scenario::BUILTIN`, so they ship
 inside the wasm too; adding one means adding the file and the `BUILTIN` entry
 (then rebuild the wasm; `test/lessons.test.ts` reads the directory).
+
+**Scenario timings are the contract.** A hero tx can only be voted on once its
+block is *complete*, i.e. after the leader has produced all `slices_per_block`
+slices across the whole Δblock (`slot_ms`, 400 ms = paper Table 10). So how
+late the tx lands inside a block moves `included_in_block → finalized` by up to
+a full slot, and the rest is δ80% of voting and certification. `happy-path`
+submits at 250 ms and the tx lands in slice 0 → 451 ms; `ideal-fast` submits at
+550 ms so it rides the last slice → 150 ms, the paper's Fig. 14 median (measured
+after a block is distributed, §1.3). Both scenarios are seed-pinned and
+`alpenglow::tests::ideal_fast_matches_the_papers_150ms_median` guards the
+number, so re-tune copy only with the CLI, never by hand.
 
 **Lessons and breakpoints** (`web/src/lessons/`, `web/src/engine/breakpoint.ts`).
 A lesson is a TypeScript object: scenario/mode/seed plus steps, each with a

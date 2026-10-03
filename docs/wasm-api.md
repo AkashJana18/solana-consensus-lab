@@ -2,6 +2,7 @@
 
 The web UI never simulates anything. It drives a WebAssembly build of `sim-core`
 through the `Sim` class below and renders the **trace events** it returns.
+`docs/architecture.md` §7 shows where these calls sit in the render pipeline.
 
 ## `Sim` (wasm-bindgen, package `sim-wasm`, imported from `web/src/wasm/pkg`)
 

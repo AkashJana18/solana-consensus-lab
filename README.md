@@ -47,10 +47,19 @@ compressed in `s=`.
 | Scenario | Alpenglow: inclusion → finalized | TowerBFT: inclusion → confirmed | TowerBFT: inclusion → rooted |
 |---|---|---|---|
 | happy-path | 451 ms (fast path, 80%) | 513 ms | 12.7 s |
+| ideal-fast (tx rides the block's last slice) | 150 ms (fast path, 80%) | 187 ms | 12.4 s |
 | offline-25pct | 563 ms (slow path, 60%+60%) | 493 ms | 17.8 s |
 | leader-down (tx sent into a dead window) | 452 ms after the next live leader | 350 ms | 12.5 s |
 | partition-heal (tx sent mid-partition) | 1.3 s after the heal (standstill re-broadcast, then 512 ms of consensus) | 495 ms | 12.7 s |
 | twenty-twenty (21% offline, then a partition) | 462 ms (slow path) | 489 ms | not within 14 s |
+
+`ideal-fast` and `happy-path` run on the same healthy cluster with the same 400 ms block time, so
+the 300 ms between them is not consensus: in `happy-path` the transaction lands in the *first*
+slice and waits for the leader to finish the block, in `ideal-fast` it is submitted at 550 ms and
+rides the *last* slice, leaving only Votor — 60% notarize votes, then an 80% fast-finalization
+certificate 150 ms later. That is min(δ80%, 2·δ60%) measured from the moment the block was
+distributed, the median the Alpenglow white paper reports for randomly chosen leaders (§1.3,
+Fig. 14); here the median validator finalizes 149 ms after it receives the block.
 
 Also visible: Alpenglow's Skip certificates when a leader is down, the stall-then-resume through a 50/50 partition with **no conflicting finalization**, standstill recovery after a heal, and Tower's vote transactions (~400 per 16 s at 25 validators) consuming block space.
 
@@ -83,15 +92,15 @@ Teaching defaults keep shred counts small (8 per slice / FEC set, 4 needed) so p
 
 ## Architecture
 
-```
-scenarios/*.json ──▶ sim-core (Rust, deterministic DES) ──▶ TraceEvent stream
-                        │  protocol::alpenglow  (Rotor · Blokstor · Pool · Votor)
-                        │  protocol::tower      (PoH · Turbine · Tower · ForkTree)
-                        ├─▶ sim-cli   (run / inspect / replay / sweep)
-                        └─▶ sim-wasm  ──▶ web/ (Worker ▸ event buffer ▸ PixiJS + React)
+```mermaid
+flowchart LR
+    SC["scenarios/*.json"] --> CORE["sim-core — deterministic Rust DES<br/>alpenglow: Rotor · Blokstor · Pool · Votor<br/>tower: PoH · Turbine · tower · fork choice"]
+    CORE --> TRACE["TraceEvent stream"]
+    TRACE --> CLI["sim-cli<br/>run · inspect · replay · sweep"]
+    TRACE --> WASM["sim-wasm"] --> WEB["web UI<br/>worker · event buffer · PixiJS + React"]
 ```
 
-Everything the UI shows is derived from the trace, so the visualization can never disagree with the simulation. `docs/wasm-api.md` is the contract between the engine and the UI.
+Everything the UI shows is derived from the trace, so the visualization can never disagree with the simulation. `docs/wasm-api.md` is the contract between the engine and the UI, and [`docs/architecture.md`](docs/architecture.md) is the full map — module by module, with diagrams of the engine loop and the render pipeline, where to add what, and an explicit list of what is modelled versus simplified.
 
 ## Fidelity notes
 
