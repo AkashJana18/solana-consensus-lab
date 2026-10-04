@@ -123,7 +123,13 @@ button.on { border-color: var(--accent); }
 .topbar { display: flex; align-items: center; gap: 14px; padding: 0 14px; background: var(--surface); }
 .brand { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-right: 6px; white-space: nowrap; }
 .brand b { font-weight: 700; }
-.brand-mark { width: 14px; height: 14px; border-radius: 4px; background: linear-gradient(135deg, var(--c-shred), var(--c-vote) 60%, var(--c-cert)); }
+/* The mark is an inline SVG (components/Brand.tsx). Height here, width from the viewBox
+   ratio, so the traced 1.2727 aspect is held exactly and the mark is never distorted. The
+   gap on .brand is its clearspace. 24px is the smallest size at which the "CL" knockout
+   still reads; the bars alone are in the repo at public/scl-logo.svg if a plainer mark is
+   ever wanted at smaller sizes. */
+.brand-mark { display: flex; flex: none; }
+.brand-mark svg { display: block; height: 24px; width: auto; }
 .field { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 select, .seed, button { background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 9px; color: var(--ink); white-space: nowrap; }
 select:hover, button:hover { background: var(--surface-3); }
@@ -138,7 +144,11 @@ button.primary:hover { filter: brightness(1.1); }
 .segmented.small button { padding: 3px 10px; font-size: 12px; }
 .transport { display: flex; gap: 6px; align-items: center; margin-left: auto; }
 .readout { font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 2px; min-width: 150px; justify-content: flex-end; }
-.readout-time { font-size: 16px; font-weight: 600; }
+/* Reserve the clock's width so the value cannot resize the bar: without this the readout
+   grew with the digit count ("1000.0" vs "20000.0"), which pushed the whole top bar wider
+   and clipped the protocol-mode control at some window sizes. Sized for the longest builtin
+   scenario (20000.0 ms) with room to spare; past ~100000 ms it grows again. */
+.readout-time { display: inline-block; min-width: 74px; text-align: right; font-size: 16px; font-weight: 600; }
 .readout-slot { margin-left: 10px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 8px; border-radius: 999px; font-size: 12px; }
 
 /* ---------- inspector ---------- */
@@ -299,6 +309,12 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .main { grid-template-columns: 1fr 340px; }
   .main.lesson { grid-template-columns: 300px 1fr 340px; }
   .legend { display: none; }
+  /* Reclaim top bar space so the product name survives to a much lower width than it
+     otherwise could. The slot chip is the cheapest thing to drop: every canvas caption
+     already reads "slot N . leader N", so the chip is a duplicate. */
+  .topbar { gap: 6px; }
+  .segmented button { padding: 5px 6px; }
+  .readout-slot { display: none; }
 }
 /* Narrow: stack instead of clipping. The app used to carry min-width: 1024px while
    body has overflow: hidden, so below that the right-hand column was unreachable --
@@ -323,11 +339,17 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 @media (max-width: 1023px) {
   .topbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .topbar::-webkit-scrollbar { display: none; }
-  .readout-slot { display: none; }
 }
-/* Last to go: the product name. Measured, not guessed -- with the name showing the bar
-   needs 1092px, so it has to go below that or the document scrolls sideways again
-   (1092px of bar in a 1024px window, with the clock readout clipped off the right). */
+/* Last to go: the product name. Measured in the worst case, not a lucky one --
+   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1070px of
+   bar. Below that the protocol-mode control starts clipping and the document scrolls
+   sideways, so the name has to go first. 1100 leaves ~30px of slack for another OS's
+   font metrics; it could go to 1080, but not with a safe margin.
+
+   Re-measure after touching anything in the bar: force display:inline on the wordmark at a
+   narrow viewport, load that worst-case URL, and look for any descendant where
+   scrollWidth > clientWidth (.segmented crops silently because it has overflow: hidden).
+   Then update this threshold, the comment above and e2e/responsive.spec.ts together. */
 @media (max-width: 1099px) {
   .brand span:not(.brand-mark) { display: none; }
 }

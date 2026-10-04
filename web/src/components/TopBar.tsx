@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Brand } from './Brand';
 import { controller } from '../engine/controller';
 import { loadScenario } from '../engine/wasmMain';
 import { SPEEDS, useStore, type Mode } from '../store/useStore';
@@ -90,7 +91,7 @@ export function TopBar() {
   return (
     <header className="topbar">
       <div className="brand">
-        <span className="brand-mark" aria-hidden />
+        <Brand />
         <span>
           Solana <b>Consensus Lab</b>
         </span>

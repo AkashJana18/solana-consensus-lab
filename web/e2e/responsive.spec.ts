@@ -145,14 +145,63 @@ test('the product name stays in the top bar until the bar cannot hold it', async
 
     const name = page.locator('.brand span:not(.brand-mark)');
     await expect(name).toHaveText('Solana Consensus Lab');
-    // The gradient mark is always there; only the wordmark is conditional.
-    await expect(page.locator('.brand-mark')).toBeVisible();
+    // The mark is an inline SVG and is always there; only the wordmark is conditional.
+    await expect(page.locator('.brand-mark svg')).toBeVisible();
+    await expect(page.locator('.brand-mark svg')).toHaveCSS('height', '24px');
     expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
 
-    // With the name showing the bar needs 1092px, so the document must never scroll.
+    // With the name showing the bar needs 1070px in the worst case (20s scenario, 20x
+    // speed, compare), so the document must never scroll. See the note by the 1099px rule
+    // in global.css for how to re-measure it after changing the bar.
     const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
     // The clock is the right-most thing in the bar, so it is the first to be lost.
     await expect(page.getByTestId('readout')).toBeInViewport();
   }
+});
+
+test('the tab has an icon, and the mark is drawn at a legible size', async ({ page }) => {
+  await page.goto('/?scenario=happy-path');
+  await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+
+  // Vite rewrites the href per base: './favicon.svg' in the build (for the GitHub Pages
+  // sub-path) and '/favicon.svg' under the dev server, so match the filename and fetch it.
+  const icon = await page.locator('link[rel="icon"]').getAttribute('href');
+  expect(icon).toMatch(/\.?\/?favicon\.svg$/);
+  expect((await page.request.get(icon!)).status()).toBe(200);
+
+  // The mark is two paths: the gradient bars, and the white "CL" knockout on top. It has to
+  // survive being the only thing left in the bar at 390px.
+  const shapes = page.locator('.brand-mark svg path');
+  await expect(shapes).toHaveCount(2);
+  for (const w of [1440, 1100, 390]) {
+    await page.setViewportSize({ width: w, height: 900 });
+    await expect(page.locator('.brand-mark svg')).toBeVisible();
+    await expect(shapes).toHaveCount(2);
+  }
+  const mark = await page.evaluate(() => {
+    const svg = document.querySelector('.brand-mark svg')!;
+    const grad = svg.querySelector('linearGradient')!;
+    return {
+      gradId: grad.id,
+      fill: svg.querySelector('path')!.getAttribute('fill'),
+      stops: [...grad.querySelectorAll('stop')].map((s) => s.getAttribute('stop-color')),
+      offsets: [...grad.querySelectorAll('stop')].map((s) => s.getAttribute('offset')),
+      viewBox: svg.getAttribute('viewBox'),
+      fills: [...svg.querySelectorAll('path')].map((p) => p.getAttribute('fill')),
+      // Measured, not read off an attribute: the browser derives the width from the
+      // viewBox, so this is the ratio that actually renders.
+      box: (() => { const b = svg.getBoundingClientRect(); return { w: b.width, h: b.height }; })(),
+    };
+  });
+  // Traced from the supplied PNG, so these are the values that were measured out of it:
+  // the viewBox is cropped to the ink and the gradient is the sampled ramp, green at the top
+  // through to purple at the bottom.
+  expect(mark.viewBox).toBe('93.8 180.7 811.4 637.6');
+  expect(mark.fills).toEqual([`url(#${mark.gradId})`, '#FFFFFF']);
+  expect(mark.stops[0]).toBe('#58C0A1');
+  expect(mark.stops[mark.stops.length - 1]).toBe('#8357A4');
+  expect(mark.stops.length).toBe(9);
+  expect(mark.box.h).toBeCloseTo(24, 1);
+  expect(mark.box.w / mark.box.h).toBeCloseTo(811.4 / 637.6, 2);
 });
