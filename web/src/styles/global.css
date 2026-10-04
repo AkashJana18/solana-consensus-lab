@@ -286,11 +286,12 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .type-tx_stage .chip-dot, .legend i { box-shadow: none !important; }
 }
-/* The top bar's min-content width is ~1400px, so labels must collapse before that,
-   not at the layout breakpoint below — otherwise 1024-1400px clips the readout. */
+/* The top bar's min-content width is ~1400px, so the control labels must collapse before
+   that, not at the layout breakpoint below — otherwise 1024-1400px clips the readout.
+   The product name is deliberately not in this list: it is the one label worth keeping. */
 @media (max-width: 1400px) {
   .topbar { gap: 8px; }
-  .transport .lbl, .field > span, .brand span:not(.brand-mark) { display: none; }
+  .transport .lbl, .field > span { display: none; }
   .readout { min-width: 0; }
   .segmented button { padding: 5px 8px; }
 }
@@ -323,4 +324,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .topbar::-webkit-scrollbar { display: none; }
   .readout-slot { display: none; }
+}
+/* Last to go: the product name. Measured, not guessed -- with the name showing the bar
+   needs 1092px, so it has to go below that or the document scrolls sideways again
+   (1092px of bar in a 1024px window, with the clock readout clipped off the right). */
+@media (max-width: 1099px) {
+  .brand span:not(.brand-mark) { display: none; }
 }

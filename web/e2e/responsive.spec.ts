@@ -126,3 +126,33 @@ test('the app stays usable below 1024px instead of clipping', async ({ page }) =
     await expect(page.getByTestId('node-picker')).toHaveValue('3');
   }
 });
+
+test('the product name stays in the top bar until the bar cannot hold it', async ({ page }) => {
+  // The control labels collapse at 1400px, but the product name is not one of them: it is
+  // the one label worth keeping, and hiding it is what made the bar look anonymous.
+  for (const [width, visible] of [
+    [1440, true],
+    [1366, true],
+    [1280, true],
+    [1200, true],
+    [1100, true],
+    [1099, false],
+    [1024, false],
+  ] as [number, boolean][]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/?scenario=happy-path');
+    await expect(page.locator('.canvas-caption .muted').first()).toContainText('slot', { timeout: 15_000 });
+
+    const name = page.locator('.brand span:not(.brand-mark)');
+    await expect(name).toHaveText('Solana Consensus Lab');
+    // The gradient mark is always there; only the wordmark is conditional.
+    await expect(page.locator('.brand-mark')).toBeVisible();
+    expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
+
+    // With the name showing the bar needs 1092px, so the document must never scroll.
+    const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
+    expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
+    // The clock is the right-most thing in the bar, so it is the first to be lost.
+    await expect(page.getByTestId('readout')).toBeInViewport();
+  }
+});
