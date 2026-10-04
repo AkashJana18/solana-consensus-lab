@@ -128,8 +128,9 @@ test('the app stays usable below 1024px instead of clipping', async ({ page }) =
 });
 
 test('the product name stays in the top bar until the bar cannot hold it', async ({ page }) => {
-  // The control labels collapse at 1400px, but the product name is not one of them: it is
-  // the one label worth keeping, and hiding it is what made the bar look anonymous.
+  // The control labels collapse (in two steps, 1520px then 1400px), but the product name is
+  // not one of them: it is the one label worth keeping, and hiding it is what made the bar
+  // look anonymous.
   for (const [width, visible] of [
     [1440, true],
     [1366, true],
@@ -150,12 +151,12 @@ test('the product name stays in the top bar until the bar cannot hold it', async
     await expect(page.locator('.brand-mark svg')).toHaveCSS('height', '24px');
     expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
 
-    // With the name showing the bar needs 1070px in the worst case (20s scenario, 20x
+    // With the name showing the bar needs 1064px in the worst case (20s scenario, 20x
     // speed, compare), so the document must never scroll. See the note by the 1099px rule
     // in global.css for how to re-measure it after changing the bar.
     const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
-    // The clock is the right-most thing in the bar, so it is the first to be lost.
+    // The clock is the last thing before the source link, so it is among the first lost.
     await expect(page.getByTestId('readout')).toBeInViewport();
   }
 });

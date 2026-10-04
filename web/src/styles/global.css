@@ -150,6 +150,23 @@ button.primary:hover { filter: brightness(1.1); }
    scenario (20000.0 ms) with room to spare; past ~100000 ms it grows again. */
 .readout-time { display: inline-block; min-width: 74px; text-align: right; font-size: 16px; font-weight: 600; }
 .readout-slot { margin-left: 10px; color: var(--ink-2); background: var(--surface-2); border: 1px solid var(--border); padding: 1px 8px; border-radius: 999px; font-size: 12px; }
+/* Source link, last thing in the bar. Styled like a button because it is a control, but it
+   is an <a>: tabbable, opens in a new tab, and needs its own hover colour since the shared
+   `select, .seed, button` rule does not reach it. The star count is fetched at runtime
+   (components/TopBar.tsx) and may never arrive, so the link must read correctly with the
+   count slot empty -- it is just the GitHub mark then. */
+.repo-link { display: flex; flex: none; align-items: center; gap: 6px; background: var(--surface-2); border: 1px solid var(--border-strong); border-radius: 6px; padding: 5px 9px; color: var(--ink-2); text-decoration: none; }
+.repo-link:hover { background: var(--surface-3); color: var(--ink); }
+.repo-link svg { display: block; flex: none; }
+.repo-mark { height: 16px; width: 16px; }
+.repo-stars { display: flex; align-items: center; gap: 4px; }
+.repo-star { height: 12px; width: 12px; }
+/* No width reserved for the number on purpose. Reserving it left ~7px of dead space beside a
+   one- or two-digit count, which read as a gap in the chip. The count lands ~200ms after
+   paint and widens the link by that much; the link is the last item in the bar and the count
+   only shows from 1201px up, where the bar already has 20px of slack at the narrowest of them
+   (see the 1520px note below), so the growth is absorbed instead of scrolling the document. */
+.repo-count { font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* ---------- inspector ---------- */
 /* min-width: 0 so the fixed track can shrink below the tab strip's min-content width;
@@ -296,12 +313,22 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .type-tx_stage .chip-dot, .legend i { box-shadow: none !important; }
 }
-/* The top bar's min-content width is ~1400px, so the control labels must collapse before
-   that, not at the layout breakpoint below — otherwise 1024-1400px clips the readout.
+/* Two label thresholds, because the bar sheds labels in the order they matter least.
+   The top bar's min-content width with every label up is 1499px, so something has to give
+   before the viewport runs out. First to go are the labels hanging off the icon buttons
+   (Lessons, Share, event, slot): they are the most redundant, they have tooltips, and they
+   have aria-labels that survive the collapse. This was 1400px, before the source link
+   (.repo-link) added 73px of fixed width to the right edge -- at 1440 it only just fitted.
+   1520 leaves 28px of slack for another OS's font metrics; at 1500 it would be 8px.
+   Note .topbar .lbl rather than .transport .lbl: the Lessons button is outside .transport,
+   so it used to be the one control label this rule missed.
    The product name is deliberately not in this list: it is the one label worth keeping. */
+@media (max-width: 1520px) {
+  .topbar .lbl { display: none; }
+}
 @media (max-width: 1400px) {
   .topbar { gap: 8px; }
-  .transport .lbl, .field > span { display: none; }
+  .field > span { display: none; }
   .readout { min-width: 0; }
   .segmented button { padding: 5px 8px; }
 }
@@ -315,6 +342,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar { gap: 6px; }
   .segmented button { padding: 5px 6px; }
   .readout-slot { display: none; }
+  /* The star count rides on the 1099px rule at the bottom of this file: showing it down to
+     here would leave that threshold 5px of slack, which is not a budget. The mark stays at
+     every width -- the link to the source is the point, the number is only the news. */
+  .repo-stars { display: none; }
 }
 /* Narrow: stack instead of clipping. The app used to carry min-width: 1024px while
    body has overflow: hidden, so below that the right-hand column was unreachable --
@@ -333,7 +364,7 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .canvas-caption { font-size: 11px; }
 }
 /* Once the layout stacks, the bar can no longer rely on the viewport: with its labels
-   collapsed it still needs ~930px, and its min-content was widening the whole app
+   collapsed it still needs ~894px, and its min-content was widening the whole app
    (measured 930px of app in a 900px window). Hide the slot chip and let the bar scroll
    inside its own row instead, so the document never scrolls sideways. */
 @media (max-width: 1023px) {
@@ -341,9 +372,9 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar::-webkit-scrollbar { display: none; }
 }
 /* Last to go: the product name. Measured in the worst case, not a lucky one --
-   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1070px of
+   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1064px of
    bar. Below that the protocol-mode control starts clipping and the document scrolls
-   sideways, so the name has to go first. 1100 leaves ~30px of slack for another OS's
+   sideways, so the name has to go first. 1100 leaves ~36px of slack for another OS's
    font metrics; it could go to 1080, but not with a safe margin.
 
    Re-measure after touching anything in the bar: force display:inline on the wordmark at a
