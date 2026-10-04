@@ -164,8 +164,9 @@ src/
   store/    useStore.ts (zustand) · runView.ts (event → view reducer)
   url/      state.ts (parse/format/compress) · sync.ts (store ⇄ address bar, share link)
   lessons/  types.ts · markdown.ts · runner.ts · index.ts · one lesson per file
-  components/ TopBar (incl. ClockReadout) · Timeline · Inspector (incl. NodePicker)
-              Modal · ScenarioModal · LessonPanel · LessonPicker · Markdown
+  components/ Brand (the project mark, traced from SCL-logo.png) · TopBar (incl. ClockReadout) · Timeline
+              Inspector (incl. NodePicker) · Modal · ScenarioModal
+              LessonPanel · LessonPicker · Markdown
               panels/ Transaction · Votor · Tower · Events · Metrics
               charts/ TallyBar · LockoutBars · ForkTree · StatTile
 test/     vitest unit tests        e2e/  Playwright specs + screenshots

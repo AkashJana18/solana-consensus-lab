@@ -1,6 +1,10 @@
 # Solana Consensus Lab
 
+<p align="center"><img src="web/public/scl-logo.svg" alt="Solana Consensus Lab mark" width="240"></p>
+
 **An interactive, paper-faithful simulator that shows how a transaction moves through Solana consensus, side by side under TowerBFT (today) and Alpenglow (SIMD-0326).**
+
+> **Independent project, not affiliated with or endorsed by Solana Foundation.** "Solana" is a trademark of Solana Foundation, used here only to identify the protocol this tool simulates. The mark above is this project's own: it was vectorised from `SCL-logo.png` (see `web/src/components/Brand.tsx`) and is not a Solana Foundation asset.
 
 Built as a free, open-source teaching tool for Solana education programs (School of Solana, Turbin3, Solana School, Rektoff) and for anyone who wants to *see* why Alpenglow finalizes in ~150 ms where TowerBFT needs ~12.8 s.
 
@@ -116,4 +120,6 @@ Everything the UI shows is derived from the trace, so the visualization can neve
 
 ## License
 
-Apache-2.0. Contributions welcome.
+Apache-2.0 for the code. Contributions welcome.
+
+"Solana" is a trademark of Solana Foundation, used nominatively to name the protocol being simulated. The project mark is our own; see the note at the top of this file.
