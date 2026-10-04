@@ -37,11 +37,18 @@ test('hovering a toolbar control names it', async ({ page }) => {
   expect(tip.x + tip.width / 2).toBeGreaterThan(stepEvent.x - 20);
   expect(tip.x + tip.width / 2).toBeLessThan(centre + 60);
 
-  // Leaving hides it, and it cannot swallow the clicks underneath it.
+  // Leaving hides it.
   await page.mouse.move(700, 400);
   await expect(tooltip(page)).toHaveCount(0);
+
+  // And it cannot swallow a click: park the cursor on a control so its tooltip is up, then
+  // click straight through it and check the transport still advanced a slot.
+  await page.getByTestId('step-slot').hover();
+  await expect(tooltip(page)).toHaveText('Advance one slot (→)');
+  const before = await page.getByTestId('readout').textContent();
   await page.getByTestId('step-slot').click();
-  await expect(tooltip(page)).toHaveCount(0);
+  await expect(tooltip(page)).toBeVisible();
+  await expect(page.getByTestId('readout')).not.toHaveText(before!);
 
   // The play button renames itself as it toggles.
   await page.getByTestId('play').hover();
