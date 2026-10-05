@@ -2,53 +2,21 @@
 
 <p align="center"><img src="web/public/scl-logo.svg" alt="Solana Consensus Lab mark" width="240"></p>
 
-**An interactive, paper-faithful simulator that shows how a transaction moves through Solana consensus, side by side under TowerBFT (today) and Alpenglow (SIMD-0326).**
+**Watch a single transaction travel through Solana's consensus — side by side, under the protocol Solana uses today and the one it's moving to.**
 
-> **Independent project, not affiliated with or endorsed by Solana Foundation.** "Solana" is a trademark of Solana Foundation, used here only to identify the protocol this tool simulates. The mark above is this project's own: it was vectorised from `SCL-logo.png` (see `web/src/components/Brand.tsx`) and is not a Solana Foundation asset.
+The short version: under Alpenglow that transaction is final in about **150 milliseconds**. Under TowerBFT the same transaction takes about **12.8 seconds**. This tool shows you where those seconds go.
 
-Built as a free, open-source teaching tool for Solana education programs (School of Solana, Turbin3, Solana School, Rektoff) and for anyone who wants to *see* why Alpenglow finalizes in ~150 ms where TowerBFT needs ~12.8 s.
+> Not affiliated with or endorsed by the Solana Foundation. "Solana" is a trademark of Solana Foundation, used here only to name the protocol being simulated. The mark above is this project's own, vectorised from `SCL-logo.png`.
 
-- **Deterministic Rust core** (`crates/sim-core`): a discrete-event simulator with a realistic six-region latency model, per-node bandwidth, and fault injection (offline stake, partitions, delay, loss). Same seed ⇒ byte-identical trace.
-- **Two protocols on one engine**
-  - **TowerBFT**: PoH-paced slots, Turbine tree propagation, vote *transactions* to the leader, tower lockouts that double per confirmation, depth-8 threshold check, 38% switching threshold, heaviest-subtree fork choice, optimistic confirmation at ⅔, root at 32 confirmations.
-  - **Alpenglow**: Votor's two concurrent paths (fast: 80% notarize → fast-finalization; slow: 60% notarize → 60% finalize), the full per-slot state machine from white paper v1.1 (`Voted`, `VotedNotar`, `BadWindow`, `ItsOver`, `BlockNotarized`, `ParentReady`), SafeToNotar / SafeToSkip fallbacks, Skip certificates, ParentReady + Δblock pacing, Rotor single-hop relays (or Turbine, as mainnet ships first), block repair, and the 20+20 resilience model.
-- **Web UI** (`web/`): React + PixiJS animation of validators, shreds, votes and certificates, driven by the Rust core compiled to WebAssembly and running in a Web Worker. Inspectors for the Votor flags, Pool tallies with 20/40/60/80% thresholds, the lockout tower, the fork tree, certificates, and a transaction stepper.
-- **Lesson mode**: five guided lessons that pause the simulation on the exact trace event that matters (a Skip certificate, a lockout reaching depth 8, a standstill re-broadcast) and ask a predict-then-run question first. **Share** copies a link that restores scenario, seed, mode, time, selected node and tab, so a lesson page can point at "the moment the Skip certificate forms".
-- **Headless CLI** (`consensus-lab`): run, inspect, replay, parameter sweeps to CSV.
+Built as a free, open-source teaching tool for Solana education programs (School of Solana, Turbin3, Solana School, Rektoff) — and for anyone who would rather *see* consensus than read about it.
 
 ![happy-path scenario, Alpenglow view](web/e2e/screenshots/happy-path.png)
 
-## Quick start
+## What you see
 
-```bash
-# Rust core + CLI
-cargo test --workspace
-cargo run -p sim-cli -- scenarios
-cargo run -p sim-cli -- run --scenario happy-path --protocol both
-cargo run -p sim-cli -- run --scenario leader-down --protocol alpenglow --events 40 --only tx_stage,certificate,timeout
-cargo run -p sim-cli -- inspect --scenario partition-heal --protocol tower --node 3 --at-ms 3000
-cargo run -p sim-cli -- run --scenario happy-path --out trace-{protocol}.jsonl
-cargo run -p sim-cli -- replay --trace trace-alpenglow.jsonl --at-ms 900
-cargo run -p sim-cli -- sweep --scenario offline-25pct --param faults.0.target.stake_pct=0..0.4:0.05 --seeds 10 --csv sweep.csv
+Time from the transaction joining a block until it can no longer be undone. TowerBFT reaches *confirmed* first — optimistic, still reversible — then *rooted*, which is final; Alpenglow goes straight to final. Seed 1, 25 validators:
 
-# Web UI (needs rustup target wasm32-unknown-unknown and wasm-bindgen-cli 0.2.128)
-./scripts/build-wasm.sh
-cd web && bun install
-bun run dev        # http://localhost:5173
-bun run test       # vitest unit tests
-bun run e2e        # Playwright end-to-end tests (bunx playwright install chromium once)
-bun run build      # static site in web/dist (production deploys from main via Vercel)
-```
-
-The UI runs the Rust core as WebAssembly inside a Web Worker; see `web/README.md` for the render loop, lesson authoring and the URL scheme, and `docs/wasm-api.md` for the engine contract.
-
-Share links look like `?scenario=partition-heal&mode=compare&seed=1&t=2700&node=3&tab=tower`
-(`t` in milliseconds); a lesson step is `?lesson=skip-certs&step=1`. Custom scenario JSON travels
-compressed in `s=`.
-
-## What you see (seed 1, 25 validators)
-
-| Scenario | Alpenglow: inclusion → finalized | TowerBFT: inclusion → confirmed | TowerBFT: inclusion → rooted |
+| Scenario | Alpenglow → final | TowerBFT → confirmed | TowerBFT → rooted |
 |---|---|---|---|
 | happy-path | 451 ms (fast path, 80%) | 513 ms | 12.7 s |
 | ideal (tx rides the block's last slice) | 150 ms (fast path, 80%) | 187 ms | 12.4 s |
@@ -57,69 +25,41 @@ compressed in `s=`.
 | partition-heal (tx sent mid-partition) | 1.3 s after the heal (standstill re-broadcast, then 512 ms of consensus) | 495 ms | 12.7 s |
 | twenty-twenty (21% offline, then a partition) | 462 ms (slow path) | 489 ms | not within 14 s |
 
-`ideal` and `happy-path` run on the same healthy cluster with the same 400 ms block time, so
-the 300 ms between them is not consensus: in `happy-path` the transaction lands in the *first*
-slice and waits for the leader to finish the block, in `ideal` it is submitted at 550 ms and
-rides the *last* slice, leaving only Votor — 60% notarize votes, then an 80% fast-finalization
-certificate 150 ms later. That is min(δ80%, 2·δ60%) measured from the moment the block was
-distributed, the median the Alpenglow white paper reports for randomly chosen leaders (§1.3,
-Fig. 14); here the median validator finalizes 149 ms after it receives the block.
+`happy-path` and `ideal` run on the same healthy cluster, yet Alpenglow takes 451 ms in one and 150 ms in the other. The difference isn't consensus — it's **when the transaction lands in the block**. In `happy-path` it rides the block's first slice and waits for the leader to finish building; in `ideal` it rides the last slice, leaving only the voting.
 
-Also visible: Alpenglow's Skip certificates when a leader is down, the stall-then-resume through a 50/50 partition with **no conflicting finalization**, standstill recovery after a heal, and Tower's vote transactions (~400 per 16 s at 25 validators) consuming block space.
+## Try it
+
+```bash
+cargo test --workspace
+cargo run -p sim-cli -- scenarios
+cargo run -p sim-cli -- run --scenario happy-path --protocol both
+
+./scripts/build-wasm.sh    # needs: rustup target add wasm32-unknown-unknown, wasm-bindgen-cli 0.2.128
+cd web && bun install && bun run dev    # http://localhost:5173
+```
+
+The CLI also replays saved traces, inspects one validator at a moment in time, and sweeps a parameter into a CSV — `consensus-lab --help`. Tests: `bun run test`, `bun run e2e`. Scenarios are small JSON files where every field has a default; write your own in the app's **custom JSON** editor.
 
 ## Lessons
 
-Click **☰ Lessons** in the top bar. Each lesson loads its scenario, then stops the clock on the exact event of each step; steps with a question wait for your prediction before running.
+Click **☰ Lessons**. Each loads a scenario and stops the clock at the moment that matters, after asking what you think happens.
 
-1. **One transaction, two protocols** — happy-path, compare: the eight stages side by side; why `confirmed` is similar and `finalized` is not.
-2. **Why votes on-chain cost block space** — happy-path, compare: Tower vote transactions vs Alpenglow vote messages; the Metrics row that counts the bytes.
-3. **Skip certificates** — leader-down: timeouts, Skip votes, `BadWindow`, ParentReady for the next window.
-4. **Lockouts and why partitions hurt TowerBFT** — partition-heal, compare: safe stall, standstill recovery, depth-8 lockouts, 12.8 s to root.
-5. **20+20** — twenty-twenty: the slow path with 21% offline, a partition on top, SafeToSkip and standstill; the adversarial arm is prose until the attack lab.
+1. One transaction, two protocols
+2. Why votes on-chain cost block space
+3. Skip certificates
+4. Lockouts and why partitions hurt TowerBFT
+5. 20+20
 
-Lessons are TypeScript objects in `web/src/lessons/`; see `web/README.md` for how to add one.
+## How faithful is it?
 
-## Scenarios
+- Vote thresholds and certificate types follow Alpenglow white paper v1.1 and SIMD-0326; real BLS signatures aren't simulated — a certificate arrives carrying its stake and is trusted.
+- Standstill is modelled on purpose: votes are sent once, so after a split heals each half would think it had already voted. It's set to 2 s here so you can watch; mainnet waits far longer.
+- PoH is modelled as the leader's clock rather than hashing, and the network is a table of latencies rather than a packet simulation.
 
-`scenarios/*.json` — shared by the CLI and the web UI. Every parameter has a default, so a scenario can be as small as `{"name": "x"}`.
-
-| Field | Meaning |
-|---|---|
-| `validators.count`, `validators.stake` | `{"dist":"pareto","alpha":1.5}` (default, mainnet-like), `uniform`, or `{"dist":"explicit","stakes":[...]}` |
-| `network` | six-region preset (eu-central, eu-west, us-east, us-west, ap-tokyo, ap-singapore) with one-way latencies, log-normal jitter, 1 Gb/s egress; override `latency_ms`, `jitter_sigma`, `bandwidth_mbps`, `base_drop_prob` |
-| `faults[]` | `offline` (`nodes`, `stake_pct`, or `leader_of_slot`), `partition` (`groups`, `stake_split`, or `regions`), `delay`, `drop`, each with `from_ms` / `to_ms` |
-| `hero_tx` | `submit_at_ms`, `rpc_node` |
-| `params.alpenglow` | `timeout_ms` (Δtimeout, default 900), `standstill_ms` (Δstandstill, default 2000), `slices_per_block`, `shreds_per_slice`, `data_shreds`, `propagation: rotor|turbine`, thresholds |
-| `params.tower` | `fec_data_shreds`, `fec_coding_shreds`, `fanout`, `threshold_depth`, `threshold_size`, `switch_threshold`, `max_lockout_history`, `optimistic_threshold`, `grace_ms` |
-
-Teaching defaults keep shred counts small (8 per slice / FEC set, 4 needed) so propagation is visible; raise them toward mainnet values (64/32) for realism.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    SC["scenarios/*.json"] --> CORE["sim-core — deterministic Rust DES<br/>alpenglow: Rotor · Blokstor · Pool · Votor<br/>tower: PoH · Turbine · tower · fork choice"]
-    CORE --> TRACE["TraceEvent stream"]
-    TRACE --> CLI["sim-cli<br/>run · inspect · replay · sweep"]
-    TRACE --> WASM["sim-wasm"] --> WEB["web UI<br/>worker · event buffer · PixiJS + React"]
-```
-
-Everything the UI shows is derived from the trace, so the visualization can never disagree with the simulation. `docs/wasm-api.md` is the contract between the engine and the UI, and [`docs/architecture.md`](docs/architecture.md) is the full map — module by module, with diagrams of the engine loop and the render pipeline, where to add what, and an explicit list of what is modelled versus simplified.
-
-## Fidelity notes
-
-- Vote and certificate thresholds, vote types, Votor handlers and the ParentReady rule follow the Alpenglow white paper v1.1 and SIMD-0326. BLS signatures are not simulated; certificates carry the aggregated stake and are trusted on receipt.
-- Δtimeout defaults to 900 ms because a block is only voted on once all of its slices have arrived; lowering it below Δblock + propagation makes the cluster skip healthy leaders, which is a useful lesson in itself.
-- Votes and certificates are sent once. After a partition heals, the two halves have never seen each other's votes, so the cluster would deadlock with everyone having voted; the white paper's **standstill** rule (a node with no new finalization for Δstandstill re-broadcasts its votes and certificates) is what recovers it. Δstandstill defaults to 2 s here for visibility; mainnet values are much longer.
-- A validator's stake counts once towards a Skip certificate even if it casts both Skip and SkipFallback. Rotor relays are sampled per shred with probability proportional to stake (with replacement), so offline low-stake nodes cannot starve a slice in small clusters.
-- A transaction that landed in a block later closed by a Skip certificate is re-forwarded by its RPC node and re-queued by the leader, as a wallet's retry logic would.
-- TowerBFT follows Agave's `vote_state` (lockout doubling, `MAX_LOCKOUT_HISTORY = 31`), threshold check at depth 8 with ⅔, 38% switch threshold, heaviest-subtree fork choice restricted to replayed blocks, leader grace period, and block repair. PoH is modeled as the leader's clock, not as hashing.
-- The network model is abstract (latency matrix + jitter + egress serialization); it is not a packet-level simulation.
-
-
+Full list of what is and isn't modelled: [`docs/architecture.md`](docs/architecture.md).
 
 ## License
 
-Apache-2.0 for the code. Contributions welcome.
+Apache-2.0. Contributions welcome. "Solana" is a trademark of Solana Foundation, used only to name the protocol being simulated.
 
-"Solana" is a trademark of Solana Foundation, used nominatively to name the protocol being simulated. The project mark is our own; see the note at the top of this file.
+Further reading: [`docs/protocols.md`](docs/protocols.md) both protocols as simulated · [`docs/architecture.md`](docs/architecture.md) module map, test map, honest limits · [`web/README.md`](web/README.md) render loop, adding a lesson, URL scheme · [`docs/wasm-api.md`](docs/wasm-api.md) engine ↔ UI contract
