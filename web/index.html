@@ -7,6 +7,33 @@
     <!-- Relative: vite base is './' so this also works from the GitHub Pages sub-path. -->
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <title>Solana Consensus Lab</title>
+
+    <!-- Link previews. X reads og:* as the source of truth and falls back to twitter:*, and
+         twitter:card is what asks for the large layout. The URL and the image have to be
+         absolute: a relative path is dropped rather than resolved, so the card silently
+         loses its picture. Static by necessity, since this is a client-rendered SPA with no
+         SSR, so every share link (?scenario=...&mode=compare&t=2700) gets this same card
+         even though each one lands on a different moment in the simulation. og:url is the
+         bare domain on purpose: the query string is the moment, not a different page.
+         Render the card with `node scripts/make-og.mjs`. -->
+    <meta name="description" content="Watch one transaction cross Solana's consensus under TowerBFT and Alpenglow, side by side. A free, open-source simulator with guided lessons." />
+    <link rel="canonical" href="https://www.solanaconsensuslab.com/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Solana Consensus Lab" />
+    <meta property="og:url" content="https://www.solanaconsensuslab.com/" />
+    <meta property="og:title" content="Solana Consensus Lab" />
+    <meta property="og:description" content="Watch one transaction cross Solana's consensus under TowerBFT and Alpenglow, side by side. A free, open-source simulator with guided lessons." />
+    <meta property="og:image" content="https://www.solanaconsensuslab.com/og.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Solana Consensus Lab: from 12.8 seconds to 150 milliseconds." />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Solana Consensus Lab" />
+    <meta name="twitter:description" content="Watch one transaction cross Solana's consensus under TowerBFT and Alpenglow, side by side. A free, open-source simulator with guided lessons." />
+    <meta name="twitter:image" content="https://www.solanaconsensuslab.com/og.png" />
+    <meta name="twitter:image:alt" content="Solana Consensus Lab: from 12.8 seconds to 150 milliseconds." />
   </head>
   <body>
     <div id="root"></div>
