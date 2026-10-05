@@ -27,7 +27,7 @@ models it as fixed 400 ms slots (`slot_ms`). Leader windows are 4 slots.
 **Block production.** At its slot boundary the leader builds on the heaviest
 fork it has *replayed*. If it has not yet replayed the previous slot's block,
 it waits up to `grace_ms` (200 ms, Agave's grace ticks) before building on an
-older parent — this is how a slow network turns into skipped slots and forks.
+older parent, which is how a slow network turns into skipped slots and forks.
 The block streams out as `fec_sets_per_block` FEC sets of
 `fec_data_shreds + fec_coding_shreds` shreds; a set is recoverable from any
 `fec_data_shreds` of them.
@@ -35,7 +35,7 @@ The block streams out as `fec_sets_per_block` FEC sets of
 **Turbine.** For each shred a deterministic stake-weighted permutation of the
 validators (seeded by slot, index and block) defines a complete k-ary tree.
 The leader sends the shred to the root; every node forwards to its children on
-first receipt — even after it has already reconstructed the block, otherwise
+first receipt even after it has already reconstructed the block, otherwise
 nodes deeper in the tree starve. Blocks that stay incomplete for a slot are
 fetched whole with `repair` messages (e.g. when an offline node sat in the tree).
 
@@ -46,7 +46,7 @@ vote on another fork is still locked out; (3) the vote that would sit at tower
 depth 8 has ≥ ⅔ stake behind it (`threshold_depth`, `threshold_size`). The
 vote is sent to the current and next leaders' TPU as a ~300-byte transaction
 (and gossiped so peers can count it immediately). Leaders pack vote
-transactions into their blocks — on mainnet they are ~75% of all transactions.
+transactions into their blocks, and on mainnet they are ~75% of all transactions.
 
 **The tower.** Votes stack. Each vote starts with `confirmation_count = 1`;
 every time a newer vote lands on top, every vote deeper in the stack than its
@@ -79,7 +79,7 @@ first complete block per slot.
 |---|---|
 | `Block(b)` complete & replayed | `TryNotar(b)`: if not `Voted` and the parent is acceptable (first slot of window: `ParentReady(parent)`; later slots: we voted Notarize for the parent in slot − 1) → **Notarize(b)**, set `Voted`, `VotedNotar(b)`. Otherwise buffer b. |
 | `ParentReady(s, p)` | Record p; for the first slot of a window set the timeouts (once); retry buffered blocks. |
-| `Timeout(s)` | If not `Voted`: `TrySkipWindow(s)` — **Skip** every not-yet-voted slot to the end of the window; set `BadWindow`. |
+| `Timeout(s)` | If not `Voted`: `TrySkipWindow(s)`, **Skip** every not-yet-voted slot to the end of the window; set `BadWindow`. |
 | `SafeToNotar(s, b)` | `TrySkipWindow(s)`; if not `ItsOver`: set `BadWindow`, **NotarFallback(b)**. |
 | `SafeToSkip(s)` | `TrySkipWindow(s)`; if not `ItsOver`: set `BadWindow`, **SkipFallback(s)**. |
 | `BlockNotarized(s, b)` | If `VotedNotar == b` and not `BadWindow`: **Finalize(s)**, set `ItsOver`. |
@@ -97,7 +97,7 @@ threshold is crossed, and broadcasts each certificate once:
 | Finalization | Finalize(s) | 60% |
 
 Derived events: `BlockNotarized` (Notarization cert), `ParentReady(s, b)` (b
-notarized or notar-fallback — genesis counts — and every slot between b and
+notarized or notar-fallback (genesis counts), and every slot between b and
 the window start s has a Skip cert), `SafeToNotar(s, b)` (node already voted
 in s, not for b, and Notarize(b) ≥ 40%, or Notarize(b) ≥ 20% with
 Notarize(b) + Skip(s) ≥ 60%), `SafeToSkip(s)` (node already voted in s, and
@@ -134,7 +134,7 @@ US-east, US-west, Tokyo, Singapore) with log-normal jitter (σ = 0.15) and
 Tower vote tx = 300 bytes, Alpenglow vote = 150 bytes, certificate = 1000 bytes.
 
 **Reading a finality number.** The white paper measures finalization *after a
-block has been distributed* — min(δ80%, 2δ60%), §1.3 — and reports a median of
+block has been distributed* (min(δ80%, 2δ60%), §1.3), and reports a median of
 roughly 150 ms for randomly chosen leaders (Fig. 14). This simulator can measure
 the same thing per validator (`BlockReceived` → `Commitment{Finalized}` on the
 same block): on the `ideal` scenario the median validator finalizes 149 ms

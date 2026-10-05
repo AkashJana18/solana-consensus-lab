@@ -1,7 +1,7 @@
 # Architecture
 
 How Solana Consensus Lab is put together, for two audiences: **contributors** changing the code, and
-**reviewers** deciding whether the thing is credible. It is a map, not a specification — the rules of
+**reviewers** deciding whether the thing is credible. It is a map, not a specification: the rules of
 each protocol live in [`protocols.md`](protocols.md), the engine↔UI bridge contract in
 [`wasm-api.md`](wasm-api.md), the front-end internals in [`web/README.md`](../web/README.md), and the
 project plan in [`grant-roadmap.md`](grant-roadmap.md).
@@ -24,7 +24,7 @@ code.
 ```mermaid
 flowchart LR
     JSON["scenarios/*.json<br/>plus defaults in scenario.rs"] --> SIM
-    subgraph CORE["sim-core — deterministic discrete-event engine"]
+    subgraph CORE["sim-core · deterministic discrete-event engine"]
         SIM["Simulator over a protocol<br/>event heap · network · faults · RNG · trace"]
     end
     SIM --> TRACE["trace stream<br/>Vec of Traced: timestamp + event"]
@@ -49,12 +49,12 @@ Consequences worth stating, because they constrain everything else:
 
 ```mermaid
 flowchart TB
-    subgraph CRATES["crates — Rust workspace"]
+    subgraph CRATES["crates · Rust workspace"]
         CORE["sim-core<br/>engine · protocols · trace · metrics · scenario"]
         WASM["sim-wasm<br/>wasm-bindgen bridge, one Sim type"]
         CLI["sim-cli<br/>run · inspect · replay · sweep"]
     end
-    subgraph WEB["web — React + PixiJS + Vite, no backend"]
+    subgraph WEB["web · React + PixiJS + Vite, no backend"]
         ENG["engine<br/>worker · client · controller · eventBuffer · breakpoint"]
         STORE["store<br/>zustand store · RunView reducer"]
         REND["render<br/>scene · particles · layout · interp"]
@@ -110,7 +110,7 @@ flowchart TB
 
 All randomness comes from `rng::Rng` (xoshiro256\*\*) forked per subsystem with fixed tags in
 `Simulator::new`, so validator stakes, node placement, leader selection, fault target picking and
-latency jitter never share a stream — and any one of them can be changed without reshuffling the
+latency jitter never share a stream, and any one of them can be changed without reshuffling the
 others.
 
 ### 3.2 One step of the loop
@@ -145,7 +145,7 @@ and applied by the engine *after* the handler returns.
 
 ```mermaid
 flowchart LR
-    subgraph HANDLER["Protocol handler — pure over node state"]
+    subgraph HANDLER["Protocol handler · pure over node state"]
         H["on_message(node, from, msg, ctx)"]
     end
     subgraph CTX["Ctx"]
@@ -154,9 +154,9 @@ flowchart LR
         R["rng, params, validators, leader schedule"]
     end
     subgraph ENGINE["Engine applies, after the handler returns"]
-        S["Send — latency, faults, bandwidth, then a Deliver event"]
-        B["Broadcast — one Send per peer"]
-        TM["Timer — pushed at now + delay"]
+        S["Send · latency, faults, bandwidth, then a Deliver event"]
+        B["Broadcast · one Send per peer"]
+        TM["Timer · pushed at now + delay"]
     end
     H --> T
     H --> A
@@ -206,7 +206,7 @@ hashes). [`protocols.md`](protocols.md) documents the rules; this table only ori
 | Alpenglow | `vote`, `certificate`, `pool_event`, `votor_flag`, `timeout` | Votor panel, lesson breakpoints |
 | Tower | `tower_update`, `fork_choice` | lockout bars, fork tree |
 | Commitment | `commitment` (processed / confirmed / finalized) | transaction stepper, panels |
-| Hero tx | `tx_stage` — `submitted`, `forwarded_to_leader`, `included_in_block`, `propagating`, `replayed`, `voted`, `confirmed`, `finalized` | the whole transaction panel and most lessons |
+| Hero tx | `tx_stage`: `submitted`, `forwarded_to_leader`, `included_in_block`, `propagating`, `replayed`, `voted`, `confirmed`, `finalized` | the whole transaction panel and most lessons |
 | Diagnostics | `log` | events feed, standstill / retry narration |
 
 Rules for adding one:
@@ -241,12 +241,12 @@ and it is why compare mode, share links and lesson "Back" are exact rather than 
 ```mermaid
 flowchart TB
     subgraph MT["Main thread"]
-        CTRL["Controller — one display clock in a rAF loop"]
-        BUF["EventBuffer — time-indexed, drain up to displayTime"]
-        VIEW["RunView — events reduced into panel state"]
-        SCENE["PixiJS scene — pooled particles, ring layout"]
+        CTRL["Controller · one display clock in a rAF loop"]
+        BUF["EventBuffer · time-indexed, drain up to displayTime"]
+        VIEW["RunView · events reduced into panel state"]
+        SCENE["PixiJS scene · pooled particles, ring layout"]
         ST[("zustand store")]
-        REACT["React components — observe the store at 15 Hz"]
+        REACT["React components · observe the store at 15 Hz"]
     end
     subgraph WA["Worker: alpenglow"]
         SA["wasm Sim"]
@@ -266,7 +266,7 @@ flowchart TB
 ```
 
 - **One display clock, N workers.** Compare mode runs both protocols from the same scenario JSON and
-  seed against the same clock. The clock never outruns a worker — it stalls instead of skipping.
+  seed against the same clock. The clock never outruns a worker; it stalls instead of skipping.
 - **Nothing per frame goes through React.** The controller drains events into a derived `RunView` and
   writes the store at most every 66 ms (≈15 Hz); the canvas is driven imperatively from the same
   drain. A 25-node run emits ~100k events, so events are never rendered as DOM (the Events feed is
@@ -275,7 +275,7 @@ flowchart TB
   `drain(displayTime)`, so "now" cannot disagree between them.
 - **Breakpoints clamp the clock before it advances** (`engine/breakpoint.ts`): a lesson step names a
   declarative trigger, the controller scans the buffered range for the first match and stops on its
-  exact timestamp — frame-exact at any speed, no rewind.
+  exact timestamp, so stops are frame-exact at any speed, no rewind.
 
 [`web/README.md`](../web/README.md#architecture) owns the front-end detail; this is the boundary.
 
@@ -312,7 +312,7 @@ CI runs all of it, then builds the wasm first because the web build depends on i
 | add a scenario | `scenarios/*.json` + a `BUILTIN` entry, rebuild the wasm | measure the timings with the CLI before writing any copy |
 | add a protocol parameter | `scenario.rs` (`Params`) with a `#[serde(default = …)]`, then read it through `ctx.params` | expose rules as parameters instead of simplifying them |
 | add a fault | `scenario.rs::Fault` + `network.rs::schedule_faults`; enforcement already exists in `send` | keep `Target::StakePct` from overshooting a whale |
-| add a lesson | `web/src/lessons/<id>.ts` + `index.ts`, bump the lesson-count assertion in `web/test/lessons.test.ts` | triggers must actually fire — verify with `--events` in the CLI |
+| add a lesson | `web/src/lessons/<id>.ts` + `index.ts`, bump the lesson-count assertion in `web/test/lessons.test.ts` | triggers must actually fire, so verify with `--events` in the CLI |
 | add a panel | `components/panels/` reading a `RunView` field | panels read the store at 15 Hz; nothing per-frame |
 
 ## 11. Scope and honest limits
@@ -322,7 +322,7 @@ What this simulator is, stated plainly so nobody has to guess:
 - **Validator count.** 25 by default, against ~1,500 in the paper's simulations. Propagation is
   simulated per message, so the *shape* of the latency distribution carries over but not its tail.
 - **No Byzantine adversary yet.** Faults model crashes, partitions, delay and loss. Equivocation and
-  double voting — the 20% wall — are milestone M4 in [`grant-roadmap.md`](grant-roadmap.md).
+  double voting (the 20% wall) are milestone M4 in [`grant-roadmap.md`](grant-roadmap.md).
 - **No cryptography.** Certificates carry aggregated stake and are trusted on receipt; the 20%
   double-sign argument is argued from thresholds, not from signature checks.
 - **Execution time is a constant** (15 ms) rather than a function of the block's transactions.
@@ -332,5 +332,5 @@ What this simulator is, stated plainly so nobody has to guess:
 - **Deterministic teaching values**: Δstandstill is 2 s instead of the paper's 10 s so partition
   recovery is watchable; shred counts and validator count are small for the same reason.
 
-These are all parameterizable or milestone-scoped, and each is stated where it is defined — the point
+These are all parameterizable or milestone-scoped, and each is stated where it is defined: the point
 of the exercise is that a reader can tell modelled rules from simplified ones.

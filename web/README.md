@@ -1,4 +1,4 @@
-# Solana Consensus Lab — web front end
+# Solana Consensus Lab: web front end
 
 Interactive, pedagogical animation of how a transaction moves through Solana consensus
 under **TowerBFT** and **Alpenglow**. The UI never simulates anything: it drives the Rust
@@ -6,7 +6,7 @@ engine (`crates/sim-core`) compiled to WebAssembly and renders the trace events 
 
 ## Requirements
 
-- [bun](https://bun.sh) ≥ 1.1 (package manager and script runner — do not use npm/npx)
+- [bun](https://bun.sh) ≥ 1.1 (package manager and script runner; do not use npm/npx)
 - Rust toolchain + `wasm-bindgen` to (re)build the engine (`bash ../scripts/build-wasm.sh`)
 
 ## Develop
@@ -63,14 +63,14 @@ expect `git status` to show them as modified after a local `bun run e2e`.
 
 ```mermaid
 flowchart TB
-    subgraph MT["Main thread — one rAF loop, nothing per frame goes through React"]
+    subgraph MT["Main thread · one rAF loop, nothing per frame goes through React"]
         CTRL["Controller<br/>displayTime += dt x speed, clamped to min(worker.now)<br/>look-ahead: advance(t + 300 ms x speed) · poll inspect/metrics at 5 Hz"]
         BUF["EventBuffer<br/>drain(displayTime)"]
         VIEW["RunView<br/>applyEvents → panels"]
         SCENE["Pixi scene<br/>nodes · leader ring · dividers · pooled particles (≤6000)"]
         STORE[("zustand store<br/>TopBar · Inspector · Timeline · panels observe at ≤15 Hz")]
     end
-    subgraph W["Web Worker per protocol — engine/worker.ts"]
+    subgraph W["Web Worker per protocol · engine/worker.ts"]
         WASM["wasm Sim(protocol, scenarioJson)<br/>runUntil(t) → Traced[] · inspect(node) · metrics()<br/>reset(t) = fresh Sim + runUntil(t)"]
     end
     CTRL --> BUF
@@ -90,7 +90,7 @@ Key ideas:
 
 - **One display clock, N workers.** Compare mode runs an Alpenglow worker and a Tower
   worker from the same scenario JSON and seed; both are driven by the same
-  `displayTime`. The clock never outruns a worker — it stalls instead of skipping events.
+  `displayTime`. The clock never outruns a worker; it stalls instead of skipping events.
 - **Time-indexed event buffer** (`engine/eventBuffer.ts`). Workers pre-compute ~300 ms
   (× speed) of sim time ahead. Each frame the controller *drains* the events whose `t`
   has been passed by the display clock; those events (and only those) update the derived
@@ -101,7 +101,7 @@ Key ideas:
   fast-forwards to the target (`reset`); the main-thread buffer and view are rebuilt from
   the returned events, again suppressing particles that would already have landed.
 - **Particles** (`render/particles.ts`) are pooled `Particle`s in Pixi `ParticleContainer`s
-  — no DOM per message. Position is a quadratic bezier (slight arc, always to the left of
+  and no DOM per message. Position is a quadratic bezier (slight arc, always to the left of
   travel so both directions stay legible). Dropped messages fizzle at 60 % of the path.
   `prefers-reduced-motion` lowers the cap to 1500 and disables glow.
 - **Colour** is reserved for message identity (shred blue, vote aqua, certificate gold,

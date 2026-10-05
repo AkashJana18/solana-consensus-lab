@@ -75,7 +75,7 @@ a short prefix of `hash.toString(16)` in the UI. `0` is genesis.
 | `timeout` | `node, slot` | Votor timeout fired. |
 | `tower_update` | `node, lockouts: {slot, confirmation_count}[], root?` | Tower after a vote (TowerBFT). |
 | `fork_choice` | `node, head_slot, head_hash` | Node's heaviest fork head changed. |
-| `commitment` | `node, slot, hash, level` | `level ∈ processed, confirmed, finalized` — node's local view. |
+| `commitment` | `node, slot, hash, level` | `level ∈ processed, confirmed, finalized`, the node's local view. |
 | `tx_stage` | `tx, stage, node?, slot?, detail?` | Hero tx progress: `submitted, forwarded_to_leader, included_in_block, propagating, replayed, voted, confirmed, finalized`. Many nodes emit the same stage; use the **first** occurrence for the timeline. |
 | `log` | `node?, msg` | Free text. |
 
@@ -119,7 +119,7 @@ Tower:
 
 Both protocols also emit `log` events with human-readable reasons (threshold check
 failed, locked out, cannot switch forks, grace period over, tx retry), which the
-Events panel should show verbatim — they are written for students.
+Events panel should show verbatim, since they are written for students.
 
 ## Metrics
 ```ts

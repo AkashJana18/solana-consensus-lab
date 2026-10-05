@@ -55,10 +55,10 @@ from `main` through the linked Vercel project.
 
 ```mermaid
 flowchart LR
-    SC["scenarios/*.json"] --> CORE["sim-core — deterministic Rust DES<br/>protocol::alpenglow — Rotor · Blokstor · Pool · Votor<br/>protocol::tower — PoH · Turbine · TowerState · ForkTree"]
+    SC["scenarios/*.json"] --> CORE["sim-core · deterministic Rust DES<br/>protocol::alpenglow · Rotor · Blokstor · Pool · Votor<br/>protocol::tower · PoH · Turbine · TowerState · ForkTree"]
     CORE --> TRACE["Vec of Traced trace events"]
-    TRACE --> CLI["sim-cli — consensus-lab: run / inspect / replay / sweep"]
-    TRACE --> WASM["sim-wasm"] --> WEB["web — Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React"]
+    TRACE --> CLI["sim-cli · consensus-lab: run / inspect / replay / sweep"]
+    TRACE --> WASM["sim-wasm"] --> WEB["web · Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React"]
 ```
 
 **Everything observable is a trace event.** `crates/sim-core/src/trace.rs`
@@ -67,7 +67,7 @@ consume only this stream. If the UI needs to show something new, add a trace
 event (and mirror it in `web/src/engine/types.ts` and `docs/wasm-api.md`),
 never a side channel. `docs/architecture.md` is the contributor map (Mermaid
 diagrams, module table, test map, "where do I add X", and the honest limits of
-the model) — keep it in step with this file's summary.
+the model) and keep it in step with this file's summary.
 
 **Engine / protocol split** (`sim.rs` + `protocol/mod.rs`). `Simulator<P>` owns
 the event heap, nodes, `Network`, `FaultState`, RNG and trace. A `Protocol`
