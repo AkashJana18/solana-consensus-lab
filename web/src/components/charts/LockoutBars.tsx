@@ -5,7 +5,7 @@ export const THRESHOLD_DEPTH = 8;
 
 /**
  * Tower lockouts as horizontal bars. Bar length is confirmation_count, i.e. log2 of the
- * lockout (2^confirmation_count slots) — a log scale, so the 2^31 root fits beside 2^1.
+ * lockout (2^confirmation_count slots), on a log scale, so the 2^31 root fits beside 2^1.
  * The most recent vote is the top row; the depth-8 threshold check row is marked.
  */
 export function LockoutBars({ lockouts, root, currentSlot }: { lockouts: Lockout[]; root: number | null; currentSlot: number }) {

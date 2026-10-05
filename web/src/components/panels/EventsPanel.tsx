@@ -49,7 +49,7 @@ export function EventsPanel() {
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
         data-testid="event-feed"
       >
-        {feed.length === 0 && <p className="empty">Nothing yet — press play.</p>}
+        {feed.length === 0 && <p className="empty">Nothing yet. Press play.</p>}
         <div style={{ height: feed.length * ROW_H, position: 'relative' }}>
           {feed.slice(start, end).map((it, i) => (
             <FeedRow key={it.key} item={it} top={(start + i) * ROW_H} />

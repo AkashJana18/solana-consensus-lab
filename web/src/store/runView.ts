@@ -91,7 +91,7 @@ let feedKey = 0;
 /**
  * Short display id for a block hash. The doc suggests the last 4 hex digits, but u64 hashes
  * arrive as JSON doubles and lose their low bits (they render as ...000), so the leading
- * digits are used — they survive the rounding and stay distinct.
+ * digits are used, so they survive the rounding and stay distinct.
  */
 export function shortHash(h: number | null | undefined): string {
   if (h === null || h === undefined) return '—';
@@ -117,7 +117,7 @@ function describe(e: Traced): string {
     case 'log':
       return e.msg;
     case 'tx_stage':
-      return `hero tx ${e.stage.replace(/_/g, ' ')}${e.slot !== undefined ? ' (slot ' + e.slot + ')' : ''}${e.detail ? ' — ' + e.detail : ''}`;
+      return `hero tx ${e.stage.replace(/_/g, ' ')}${e.slot !== undefined ? ' (slot ' + e.slot + ')' : ''}${e.detail ? ': ' + e.detail : ''}`;
     case 'slot_start':
       return `slot ${e.slot} · leader ${e.leader}`;
     case 'block_produced':

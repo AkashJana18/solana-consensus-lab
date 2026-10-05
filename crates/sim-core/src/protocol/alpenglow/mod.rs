@@ -703,8 +703,8 @@ mod tests {
     }
 
     /// The builtin "ideal" scenario has to reproduce the white paper's headline number.
-    /// The paper measures finalization *after a block has been distributed* — min(δ80%, 2δ60%),
-    /// §1.3 — and reports a median of roughly 150 ms for randomly chosen leaders (Fig. 14). The
+    /// The paper measures finalization *after a block has been distributed*: min(δ80%, 2δ60%),
+    /// §1.3, and reports a median of roughly 150 ms for randomly chosen leaders (Fig. 14). The
     /// scenario's transaction rides the block's last slice, so inclusion and distribution
     /// coincide; both the median node and the transaction must land on that number.
     #[test]

@@ -507,7 +507,7 @@ impl Node {
             if let Some(h) = self.block_at_slot_on_fork(candidate, tv.slot) {
                 let w = self.forks.weight(h);
                 if !ctx.validators.reaches(w, tp.threshold_size) {
-                    self.note(ctx, format!("slot {slot}: threshold check failed — slot {} at depth {} has {:.0}% (< {:.0}%)", tv.slot, tp.threshold_depth, ctx.validators.pct(w) * 100.0, tp.threshold_size * 100.0));
+                    self.note(ctx, format!("slot {slot}: threshold check failed: slot {} at depth {} has {:.0}% (< {:.0}%)", tv.slot, tp.threshold_depth, ctx.validators.pct(w) * 100.0, tp.threshold_size * 100.0));
                     return;
                 }
             }
