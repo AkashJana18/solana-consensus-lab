@@ -161,9 +161,11 @@ Tower roots never conflict, determinism over all builtin scenarios).
 seeds every run, so a newly found failure stays failing until fixed). Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
 `breakpoint` (every trigger), `markdown`, and `lessons` (registry integrity);
-`e2e/smoke.spec.ts` and `compare.spec.ts` write screenshots to
-`web/e2e/screenshots/` that the README embeds (they rewrite them on every run,
-so expect them dirty after a local `bun run e2e`), `lesson.spec.ts` follows the
+`e2e/smoke.spec.ts` and `compare.spec.ts` capture the screenshots in
+`web/e2e/screenshots/` that the README embeds, through `e2e/capture.ts`. The
+capture happens on every run but the write is opt-in (`bun run e2e:screenshots`),
+because rewriting tracked PNGs on every run dirtied the tree over antialiasing and
+taught you to ignore `git status`; `lesson.spec.ts` follows the
 Skip-certificates lesson, `share.spec.ts` restores a share link,
 `keyboard.spec.ts` holds the keyboard contract, `responsive.spec.ts` is the only
 guard on layout below the 1440px Playwright viewport, `timeline.spec.ts` covers

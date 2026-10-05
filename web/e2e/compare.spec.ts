@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { capture } from './capture';
 
 test('compare mode finalizes under both protocols on leader-down', async ({ page }) => {
   const errors: string[] = [];
@@ -15,6 +16,6 @@ test('compare mode finalizes under both protocols on leader-down', async ({ page
   // Alpenglow finalizes shortly after the skipped window; Tower needs ~13 s of sim time to root.
   await expect(page.getByTestId('stage-alpenglow-finalized')).toHaveAttribute('data-reached', 'true', { timeout: 30_000 });
   await expect(page.getByTestId('stage-tower-finalized')).toHaveAttribute('data-reached', 'true', { timeout: 60_000 });
-  await page.screenshot({ path: 'e2e/screenshots/compare-leader-down.png', fullPage: false });
+  await capture(page, 'compare-leader-down.png');
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });

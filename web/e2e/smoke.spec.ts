@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { capture } from './capture';
 
 test('happy-path finalizes under Alpenglow at 20x', async ({ page }) => {
   const errors: string[] = [];
@@ -24,7 +25,7 @@ test('happy-path finalizes under Alpenglow at 20x', async ({ page }) => {
 
   // Let the run finish so the screenshot shows the full timeline, then capture it.
   await expect(page.getByTestId('play')).toHaveAttribute('aria-label', 'Play', { timeout: 20_000 });
-  await page.screenshot({ path: 'e2e/screenshots/happy-path.png', fullPage: false });
+  await capture(page, 'happy-path.png');
 
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });
