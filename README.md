@@ -10,6 +10,8 @@ Under Alpenglow that transaction is final in about **150 milliseconds**. Under T
 
 Built as a free, open-source teaching tool for Solana education programs and for anyone who would rather *see* consensus than read about it.
 
+![Solana Consensus Lab banner](web/public/scl-banner.png)
+
 ![happy-path scenario, Alpenglow view](web/e2e/screenshots/happy-path.png)
 
 ## What you see
