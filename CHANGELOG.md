@@ -8,6 +8,30 @@ Companion documents, not duplicated here: [`CLAUDE.md`](CLAUDE.md) for commands 
 invariants that are load-bearing, [`docs/architecture.md`](docs/architecture.md) for the
 module map and the explicit list of what is modelled versus simplified.
 
+## 2026-10-06
+
+- **Live devnet tracing.** A fourth top-bar mode that watches a real transaction on
+  `api.devnet.solana.com` and renders it through the existing timeline, transaction stepper and
+  events feed. Paste a signature, or connect a devnet wallet; the app never creates or holds a
+  key. This is a second producer of the same `Traced` union, behind the same `RunSource`
+  interface `SimClient` satisfies, so the trace contract is unchanged.
+- **It says what it cannot see.** Alpenglow runs on devnet today and mainnet does not, verified
+  on-chain through `getAgGenesisCert` (devnet slot 504,148,999; testnet 444,625,255; mainnet
+  null). But its votes are off-chain gossip, so no RPC exposes notarization, certificates or
+  propagation. The panel and `docs/wasm-api.md` state that limit rather than blurring the two
+  tracks. Skipped slots *are* visible from outside, and are the shadow of a Skip certificate.
+- **Run sources are now an interface.** `engine/runSource.ts`, with three carve-outs in the
+  controller for a source with no materialised future: the clock clamp, the lookahead, and the
+  backward-scrub re-create. A live trace declares no horizon, so `end` grows to the newest
+  observation and Back replays the recording instead of refetching anything.
+- **The panels key on the selected protocol.** `util/protocolRun.ts` replaces
+  `p === 'tower' ? tower : alpenglow` in three panels: that ternary type-checked fine with a
+  third protocol and would have shown Alpenglow's data under a Devnet heading.
+- **The top bar was re-measured.** The Devnet mode button added 56px to the segmented control,
+  so min-content with every label up went 1499px to 1552px and the collapsed band 1064px to
+  1120px. The label threshold moves 1520 to 1590 and the product-name threshold 1099 to 1149,
+  with `e2e/responsive.spec.ts` updated to the measured figures.
+
 ## 2026-10-05
 
 - **README rewritten in plain English**, 126 lines and 1,578 words down to 97 and 672. The
