@@ -281,7 +281,10 @@ export class LiveClient implements RunSource {
       const span = tip - this.tip;
       if (span <= MAX_CATCHUP_SLOTS) {
         // One getBlocks for the whole range. A getBlock per slot is what earns a 429.
-        const blocks = await this.rpc<(number | null)[]>('getBlocks', [from, tip, { commitment: 'processed', maxSupportedTransactionVersion: 0 }]);
+        // commitment must be 'confirmed' or better: devnet rejects anything below it with
+        // -32602 "Method does not support commitment below `confirmed`". Verified against
+        // the public endpoint, which is how this was found.
+        const blocks = await this.rpc<(number | null)[]>('getBlocks', [from, tip, { commitment: 'confirmed' }]);
         for (let i = 0; i < blocks.length; i++) {
           const slot = from + i;
           if (this.seenSlots.has(slot)) continue;
@@ -317,7 +320,10 @@ export class LiveClient implements RunSource {
     if (!sig) return;
     const res = await this.rpc<{
       value: (null | { slot: number | null; confirmationStatus: string | null; err: object | null })[];
-    }>('getSignatureStatuses', [sig, { searchTransactionHistory: true }]);
+      // The signature goes in as a list: the first parameter is an array of signatures,
+      // and passing a bare string fails with -32602 "expected a sequence". Also found
+      // against the public endpoint rather than in the mocked tests.
+    }>('getSignatureStatuses', [[sig], { searchTransactionHistory: true }]);
     const st = res.value[0];
     if (!st || st.slot === null) return;
 

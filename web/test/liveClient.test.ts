@@ -10,6 +10,15 @@ function fakeRpc(opts: { tip: () => number; blocks?: (string | null)[]; status?:
   const impl = (async (_url: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(String(init?.body));
     calls.push({ method: body.method, params: body.params });
+    // The two param shapes devnet rejects if they are wrong, asserted here so a mocked test
+    // cannot pass while the real endpoint fails. Both were found against the public RPC.
+    if (body.method === 'getBlocks') {
+      const commitment = (body.params[2] as { commitment?: string } | undefined)?.commitment;
+      if (commitment === 'processed') throw new Error('devnet: -32602 Method does not support commitment below confirmed');
+    }
+    if (body.method === 'getSignatureStatuses' && !Array.isArray(body.params[0])) {
+      throw new Error('devnet: -32602 Invalid params: expected a sequence');
+    }
     const result =
       body.method === 'getSlot'
         ? opts.tip()
