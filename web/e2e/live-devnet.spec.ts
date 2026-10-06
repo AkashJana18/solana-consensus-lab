@@ -16,41 +16,57 @@ async function mockDevnet(page: Page, opts: { slots: number; skippedEvery?: numb
   let level = 'processed';
   const skipped = opts.skippedEvery ?? Infinity;
   let slotCalls = 0;
+  const sent: unknown[] = [];
 
   await page.route(
     (url) => url.hostname === 'api.devnet.solana.com',
     async (route) => {
-      const body = JSON.parse(route.request().postData() ?? '{}') as { method: string; params: unknown[] };
-      let result: unknown = null;
-      switch (body.method) {
+      const raw = JSON.parse(route.request().postData() ?? '{}') as { method: string; params: unknown[] } | { method: string; params: unknown[] }[];
+      // kit can batch JSON-RPC calls, so answer an array of them one by one.
+      if (Array.isArray(raw)) {
+        await route.fulfill({
+          json: raw.map((r, i) => ({ jsonrpc: '2.0', id: i, result: answer(r.method) })),
+        });
+        return;
+      }
+      const body = raw;
+      const answer = (method: string): unknown => {
+      switch (method) {
         case 'getSlot':
           // devnet's tip moves between polls, which is the only way the client learns it
           // has new slots to look at. A frozen tip would mean an idle cluster.
           slotCalls += 1;
-          result = (tip += 2);
-          break;
+          return (tip += 2);
         case 'getBlocks': {
           const [from, to] = body.params as [number, number];
           const blocks: (string | null)[] = [];
           for (let s = from; s <= to; s++) blocks.push(s % skipped === 0 ? null : `blk${s}`);
-          result = blocks;
-          break;
+          return blocks;
         }
         case 'getSignatureStatuses':
           // Walk the levels on successive polls, the way a real finalization does.
           level = level === 'processed' ? 'confirmed' : level === 'confirmed' ? 'finalized' : 'finalized';
-          result = { value: [{ slot: 508_100_002, confirmationStatus: level, err: null }] };
-          break;
+          return { value: [{ slot: 508_100_002, confirmationStatus: level, err: null }] };
         case 'getBlockTime':
-          result = Math.floor(Date.now() / 1000) - 1;
-          break;
+          return Math.floor(Date.now() / 1000) - 1;
+        // Sent by the wallet path when it builds a transfer.
+        case 'getLatestBlockhash':
+          return {
+            context: { apiVersion: '4.4.0', slot: 508_100_010 },
+            value: { blockhash: '76S7CNgroYr2q2MegCXsjBcMChQa1TdFWs8BhEtDDnLB', lastValidBlockHeight: 508_100_200 },
+          };
+        case 'sendTransaction':
+          sent.push((body.params as [unknown, unknown?])[0]);
+          return SIG;
         default:
-          result = null;
+          return null;
       }
+      };
+      const result = answer(body.method);
       await route.fulfill({ json: { jsonrpc: '2.0', id: 1, result } });
     },
   );
-  return { slotCalls: () => slotCalls };
+  return { slotCalls: () => slotCalls, sentBytes: () => sent };
 }
 
 async function openLive(page: Page) {
@@ -181,4 +197,108 @@ test('the scope control only exists where it means something', async ({ page }) 
   // Simulated runs are short and their event mix is already legible, so no scope switch.
   await expect(page.getByTestId('feed-scope-all')).toHaveCount(0);
   await expect(page.getByTestId('feed-count')).toContainText('shown · newest first');
+});
+
+const WALLET_ADDRESS = '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM';
+
+/**
+ * Stand in for a Wallet Standard browser extension.
+ *
+ * `@wallet-standard/app` discovers wallets by dispatching `wallet-standard:app-ready` and
+ * waiting for each extension to call `register`, exactly as a real extension does, so
+ * listening for that event here tests the real discovery path rather than a shortcut.
+ * `window.solana` is also faked because the panel uses it for the connect step.
+ */
+async function mockWallet(page: Page, opts: { reject?: boolean } = {}) {
+  await page.addInitScript(
+    ({ addr, reject }) => {
+      const wallet = {
+        name: 'Mock wallet',
+        version: '1.0.0',
+        icon: 'data:image/svg+xml,',
+        chains: ['solana:devnet'],
+        accounts: [{ address: addr, label: 'Mock', chains: ['solana:devnet'] }],
+        features: {
+          'solana:signTransaction': {
+            signTransaction: async (tx: Uint8Array, chain: string) => {
+              (window as unknown as Record<string, unknown>).__signChain = chain;
+              if (reject) throw Object.assign(new Error('User rejected the request'), { code: 4001 });
+              // A legacy wire transaction: signature count, 64-byte signature, then the
+              // message. The signature is not real; the client only parses it.
+              const out = new Uint8Array(1 + 64 + tx.length);
+              out[0] = 1;
+              out.set(tx, 65);
+              return { signedTransaction: out, signature: new Uint8Array(64) };
+            },
+          },
+        },
+      };
+      window.addEventListener('wallet-standard:app-ready', ((e: CustomEvent) => {
+        (e.detail as { register(w: unknown): void }).register(wallet);
+      }) as EventListener);
+      (window as unknown as Record<string, unknown>).solana = {
+        connect: async () => ({ publicKey: { toString: () => addr } }),
+      };
+    },
+    { addr: WALLET_ADDRESS, reject: opts.reject ?? false },
+  );
+}
+
+test('sending a devnet transfer signs with the wallet and traces the result', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+
+  const rpc = await mockDevnet(page);
+  await mockWallet(page);
+  await openLive(page);
+
+  // No send controls before a wallet is connected.
+  await expect(page.getByTestId('live-send')).toHaveCount(0);
+
+  await page.getByTestId('live-connect').click();
+  await expect(page.getByTestId('live-send')).toBeVisible();
+
+  // Self-transfer by default: the recipient field starts as the connected account.
+  await expect(page.getByTestId('live-recipient')).toHaveValue(WALLET_ADDRESS);
+  await page.getByTestId('live-amount').fill('0.01');
+  await page.getByTestId('live-send-button').click();
+
+  // The wallet is asked for devnet by name, so a wallet on another cluster refuses.
+  await expect(page.getByTestId('live-note')).toContainText('Tracing', { timeout: 20_000 });
+  expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__signChain)).toBe('solana:devnet');
+
+  // The transaction was actually broadcast, not merely signed.
+  expect(rpc.sentBytes()).toHaveLength(1);
+
+  // And it is being traced from the signature the RPC reported, with no pasting in between.
+  await expect(page.getByTestId('live-signature')).toHaveValue(SIG);
+  await openFeed(page);
+  await expect(page.getByTestId('event-feed')).toContainText('hero tx included in block', { timeout: 20_000 });
+  expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+test('a declined signature is reported as declined, not as a failure to send', async ({ page }) => {
+  await mockDevnet(page);
+  await mockWallet(page, { reject: true });
+  await openLive(page);
+  await page.getByTestId('live-connect').click();
+  await page.getByTestId('live-send-button').click();
+
+  await expect(page.getByTestId('live-note')).toContainText('declined', { timeout: 20_000 });
+  // Nothing was broadcast, and nothing was claimed to have been traced.
+  expect(SIG).toBeTruthy();
+});
+
+test('an amount that is not devnet SOL is refused before the wallet is asked', async ({ page }) => {
+  const rpc = await mockDevnet(page);
+  await mockWallet(page);
+  await openLive(page);
+  await page.getByTestId('live-connect').click();
+  await page.getByTestId('live-amount').fill('0.0000000001');
+  await page.getByTestId('live-send-button').click();
+
+  // Ten decimals cannot exist in lamports, so there is nothing to sign.
+  await expect(page.getByTestId('live-note')).toContainText('not an amount of devnet SOL', { timeout: 20_000 });
+  expect(rpc.sentBytes()).toHaveLength(0);
 });

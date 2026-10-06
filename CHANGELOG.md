@@ -10,6 +10,21 @@ module map and the explicit list of what is modelled versus simplified.
 
 ## 2026-10-06
 
+- **You can now send the transaction, not only paste it.** The live panel connects a wallet
+  and builds a real System transfer on devnet: `engine/devnetSend.ts` assembles the message,
+  the wallet signs it, the RPC broadcasts it, and the resulting signature starts being traced
+  immediately. The app never sees a key. `@solana/kit` 8.4 is loaded dynamically, so the
+  simulator's bundle is unchanged and only presses Send downloads it.
+- **It asks the wallet to sign, not to sign-and-send.** That ordering is the point: a
+  sign-and-send feature hands back a signature that has to be polled to disprove, whereas a
+  signature we broadcast ourselves means a decline, an expired blockhash, the wrong cluster
+  and a rate limit are all reportable. Failures become one plain sentence each, including the
+  System program's own `no record of a prior credit` wording for an empty account, which is
+  what a fresh devnet wallet actually hits.
+- **The instruction is encoded by hand, because kit 8 does not ship program builders.** A
+  System transfer is index 2 then a little-endian u64, against `1111…1111`, and the test
+  asserts those twelve bytes literally. A local keypair confirmed devnet parses and executes
+  it: the attempt reached the System program's debit logic and failed only for want of funds.
 - **Live devnet tracing.** A fourth top-bar mode that watches a real transaction on
   `api.devnet.solana.com` and renders it through the existing timeline, transaction stepper and
   events feed. Paste a signature, or connect a devnet wallet; the app never creates or holds a
