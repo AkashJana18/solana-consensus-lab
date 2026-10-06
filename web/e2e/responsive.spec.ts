@@ -136,8 +136,8 @@ test('the product name stays in the top bar until the bar cannot hold it', async
     [1366, true],
     [1280, true],
     [1200, true],
-    [1100, true],
-    [1099, false],
+    [1150, true],
+    [1149, false],
     [1024, false],
   ] as [number, boolean][]) {
     await page.setViewportSize({ width, height: 900 });
@@ -151,8 +151,8 @@ test('the product name stays in the top bar until the bar cannot hold it', async
     await expect(page.locator('.brand-mark svg')).toHaveCSS('height', '24px');
     expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
 
-    // With the name showing the bar needs 1064px in the worst case (20s scenario, 20x
-    // speed, compare), so the document must never scroll. See the note by the 1099px rule
+    // With the name showing the bar needs 1120px in the worst case (20s scenario, 20x
+    // speed, compare), so the document must never scroll. See the note by the 1149px rule
     // in global.css for how to re-measure it after changing the bar.
     const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);

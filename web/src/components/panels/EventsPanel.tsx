@@ -3,6 +3,7 @@ import { useSize } from '../../hooks/useSize';
 import { FEED_CAP, type FeedItem } from '../../store/runView';
 import { protocolsFor, useStore } from '../../store/useStore';
 import { PROTOCOL_LABEL, fmtMs } from '../../util/format';
+import { forProtocol } from '../../util/protocolRun';
 
 const ROW_H = 46;
 const OVERSCAN = 6;
@@ -10,12 +11,13 @@ const OVERSCAN = 6;
 /** Virtualised feed: only the rows inside the scroll viewport (+overscan) exist in the DOM. */
 export function EventsPanel() {
   const mode = useStore((s) => s.mode);
-  const alpenglowFeed = useStore((s) => s.runs.alpenglow?.feed);
-  const towerFeed = useStore((s) => s.runs.tower?.feed);
   const protocols = protocolsFor(mode);
   const [proto, setProto] = useState(protocols[0]);
   const active = protocols.includes(proto) ? proto : protocols[0];
-  const feed = (active === 'tower' ? towerFeed : alpenglowFeed) ?? [];
+  const alpenglowFeed = useStore((s) => s.runs.alpenglow?.feed);
+  const towerFeed = useStore((s) => s.runs.tower?.feed);
+  const liveFeed = useStore((s) => s.runs.live?.feed);
+  const feed = forProtocol(active, { alpenglow: alpenglowFeed, tower: towerFeed, live: liveFeed }) ?? [];
   const [scrollTop, setScrollTop] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
   // Measured rather than tracked on scroll: a resize, a mode switch or the lesson panel

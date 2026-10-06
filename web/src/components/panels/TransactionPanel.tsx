@@ -2,6 +2,7 @@ import type { Protocol } from '../../engine/types';
 import { STAGE_HINT, STAGE_LABEL, TX_STAGES, stageDelta, type TxStageMap } from '../../engine/txStages';
 import { protocolsFor, useStore } from '../../store/useStore';
 import { PROTOCOL_LABEL, fmtDeltaMs, fmtMs } from '../../util/format';
+import { forProtocol } from '../../util/protocolRun';
 
 /** Vertical stepper of the eight hero-tx stages, one time column per protocol. */
 export function TransactionPanel() {
@@ -12,9 +13,12 @@ export function TransactionPanel() {
   // panel stops re-rendering on the 15 Hz clock flush instead of riding it.
   const alpenglowStages = useStore((s) => s.runs.alpenglow?.txStages);
   const towerStages = useStore((s) => s.runs.tower?.txStages);
+  const liveStages = useStore((s) => s.runs.live?.txStages);
   const protocols = protocolsFor(mode);
   const maps: Record<string, TxStageMap> = {};
-  for (const p of protocols) maps[p] = (p === 'tower' ? towerStages : alpenglowStages) ?? {};
+  for (const p of protocols) {
+    maps[p] = forProtocol(p, { alpenglow: alpenglowStages, tower: towerStages, live: liveStages }) ?? {};
+  }
 
   return (
     <div className="tx-panel">

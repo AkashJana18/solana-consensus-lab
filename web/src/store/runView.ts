@@ -59,6 +59,8 @@ const FEED_TYPES = new Set<Traced['type']>([
   'tx_stage',
   'slot_start',
   'block_produced',
+  'slot_skipped',
+  'rpc_conn',
 ]);
 
 export function emptyView(protocol: Protocol, meta: SimMeta | null = null): RunView {
@@ -124,6 +126,11 @@ function describe(e: Traced): string {
       return `block ${shortHash(e.hash)} slot ${e.slot} by ${e.leader}${e.txs.includes(0) ? ' · contains hero tx' : ''}`;
     case 'commitment':
       return `slot ${e.slot} ${e.level}`;
+    case 'slot_skipped':
+      // A slot with no block. On Alpenglow this is a Skip certificate seen from outside.
+      return `slot ${e.slot} skipped (no block)${e.reason ? ': ' + e.reason : ''}`;
+    case 'rpc_conn':
+      return `devnet RPC ${e.state}${e.detail ? ': ' + e.detail : ''}`;
     default:
       return e.type;
   }
@@ -133,6 +140,7 @@ function feedKind(e: Traced): string {
   if ('kind' in e && typeof e.kind === 'string') return e.kind;
   if (e.type === 'tx_stage') return e.stage;
   if (e.type === 'commitment') return e.level;
+  if (e.type === 'rpc_conn') return e.state;
   return e.type;
 }
 

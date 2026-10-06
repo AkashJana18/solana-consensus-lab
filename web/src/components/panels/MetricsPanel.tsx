@@ -1,6 +1,7 @@
 import type { Metrics, Protocol } from '../../engine/types';
 import { protocolsFor, useStore } from '../../store/useStore';
 import { PROTOCOL_LABEL, fmtBytes, fmtInt, fmtMsValue } from '../../util/format';
+import { forProtocol } from '../../util/protocolRun';
 import { StatTile } from '../charts/StatTile';
 
 export function MetricsPanel() {
@@ -8,11 +9,16 @@ export function MetricsPanel() {
   const mode = useStore((s) => s.mode);
   // metrics are only replaced by the 5 Hz poll, so selecting them (rather than s.runs,
   // whose identity changes on every flush) drops this panel to its real update rate.
+  // metrics are only replaced by the 5 Hz poll, so selecting them (rather than s.runs,
+  // whose identity changes on every flush) drops this panel to its real update rate.
   const alpenglowMetrics = useStore((s) => s.runs.alpenglow?.metrics);
   const towerMetrics = useStore((s) => s.runs.tower?.metrics);
+  const liveMetrics = useStore((s) => s.runs.live?.metrics);
   const protocols = protocolsFor(mode);
   const m: Partial<Record<Protocol, Metrics | null>> = {};
-  for (const p of protocols) m[p] = (p === 'tower' ? towerMetrics : alpenglowMetrics) ?? null;
+  for (const p of protocols) {
+    m[p] = forProtocol(p, { alpenglow: alpenglowMetrics, tower: towerMetrics, live: liveMetrics }) ?? null;
+  }
   const single = protocols.length === 1 ? m[protocols[0]] : null;
 
   return (

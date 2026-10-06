@@ -1,10 +1,16 @@
 // TypeScript mirror of docs/wasm-api.md (engine <-> UI contract).
 // All times are microseconds of simulated time unless a field name says `_ms`.
+//
+// `live` is the one protocol that is not produced by the Rust engine: it is the devnet
+// RPC client in engine/liveClient.ts, which emits the same TraceEvent union from observed
+// data. See docs/wasm-api.md for which events it may legitimately emit.
 
-export type Protocol = 'alpenglow' | 'tower';
+export type Protocol = 'alpenglow' | 'tower' | 'live';
 export type NodeId = number;
 /** u64 rendered as a JSON number; treat as an opaque id, compare by equality only. */
 export type BlockHash = number;
+/** Where a live trace's connection stands. Not emitted by the Rust engine. */
+export type RpcConnState = 'connecting' | 'connected' | 'retrying' | 'error' | 'stopped';
 
 export interface Scenario {
   name: string;
@@ -113,6 +119,10 @@ export type TraceEvent =
   | { type: 'fork_choice'; node: NodeId; head_slot: number; head_hash: BlockHash }
   | { type: 'commitment'; node: NodeId; slot: number; hash: BlockHash; level: CommitmentLevel }
   | { type: 'tx_stage'; tx: number; stage: TxStage; node?: NodeId; slot?: number; detail?: string }
+  /** A slot with no block in it. Live-only: on Alpenglow this is the outside view of a Skip certificate. */
+  | { type: 'slot_skipped'; slot: number; reason?: string }
+  /** The devnet RPC connection's state. Live-only. */
+  | { type: 'rpc_conn'; state: RpcConnState; detail?: string }
   | { type: 'log'; node?: NodeId; msg: string };
 
 export type Traced = { t: number } & TraceEvent;
