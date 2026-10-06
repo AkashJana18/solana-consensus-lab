@@ -194,6 +194,39 @@ describe('LiveClient', () => {
     expect(seen.filter((e) => e.type === 'block_produced')).toHaveLength(2);
   });
 
+  it('announces the measured cadence once, since the UI snapshots meta at configure', async () => {
+    let tip = 100;
+    let elapsedUs = 1_000_000;
+    const rpc = fakeRpc({ tip: () => tip, blocks: Array.from({ length: 4 }, (_, i) => `h${i}`) });
+    const client = new LiveClient({ fetchImpl: rpc.impl, manual: true, clock: () => elapsedUs });
+    await client.init();
+    const seen = await collect(client);
+    await client.pollOnceForTest();
+    elapsedUs += 2_000_000; // 4 slots over 2 s
+    tip = 104;
+    await client.pollOnceForTest();
+    elapsedUs += 2_000_000;
+    tip = 108;
+    await client.pollOnceForTest();
+
+    const cadence = seen.filter((e): e is Extract<Traced, { type: 'log' }> => e.type === 'log' && e.msg.includes('cadence'));
+    expect(cadence).toHaveLength(1);
+    expect(cadence[0].msg).toContain('500 ms per slot');
+  });
+
+  it('ignores an implausible cadence sample from a late poll', async () => {
+    let tip = 100;
+    let elapsedUs = 1_000_000;
+    const rpc = fakeRpc({ tip: () => tip, blocks: ['a', 'b'] });
+    const client = new LiveClient({ fetchImpl: rpc.impl, manual: true, clock: () => elapsedUs });
+    await client.init();
+    await client.pollOnceForTest();
+    elapsedUs += 30_000_000; // 30 s for two slots is a stalled endpoint, not a cadence
+    tip = 102;
+    await client.pollOnceForTest();
+    expect(client.meta?.slot_ms).toBe(400);
+  });
+
   it('defaults to the public devnet endpoint', () => {
     expect(DEVNET_RPC).toBe('https://api.devnet.solana.com');
   });

@@ -107,6 +107,7 @@ export class LiveClient implements RunSource {
   private stages = new Set<string>();
   private connState: string | null = null;
   private slotMs: number | null = null;
+  private cadenceReported = false;
   private lastTipAtUs: number | null = null;
 
   constructor(opts: LiveOptions = {}) {
@@ -133,6 +134,7 @@ export class LiveClient implements RunSource {
     this.levels = {};
     this.stages.clear();
     this.connState = null;
+    this.cadenceReported = false;
     this.backoffMs = this.pollMs;
     this.meta = this.synthMeta();
     this.emit({ type: 'rpc_conn', state: 'connecting' });
@@ -151,8 +153,9 @@ export class LiveClient implements RunSource {
       // fails loudly here rather than as a silent stall.
       const tip = await this.rpc<number>('getSlot', []);
       this.tip = tip;
-      // Baseline for the cadence measurement. Without this the first advance would have no
-      // previous sample to measure against and would be skipped.
+      // Cadence baseline. Set here as well as in poll(): this observes a tip, and so does
+      // poll() after a watch(), which clears the tip. Setting it in only one of the two
+      // leaves the other path with no baseline and the cadence never measured.
       this.lastTipAtUs = this.stamp();
       this.emit({ type: 'slot_start', slot: tip, leader: OBSERVER_NODE });
     } catch (e) {
@@ -275,6 +278,10 @@ export class LiveClient implements RunSource {
 
     if (this.tip === null) {
       this.tip = tip;
+      // Cadence baseline, set wherever the tip is first observed. It belongs here rather
+      // than in init() because watch() clears the tip, and a baseline taken before a Trace
+      // click would be stale and the cadence would never be measured at all.
+      this.lastTipAtUs = nowUs;
       this.emit({ type: 'slot_start', slot: tip, leader: OBSERVER_NODE });
     } else if (tip > this.tip) {
       const from = this.tip + 1;
@@ -302,9 +309,21 @@ export class LiveClient implements RunSource {
       if (this.lastTipAtUs !== null && span > 0) {
         // Event times are microseconds and slot_ms is milliseconds.
         const measured = Math.round((nowUs - this.lastTipAtUs) / span / 1000);
-        if (measured > 0 && measured !== this.slotMs && this.meta) {
+        // Only trust a plausible value: a poll that lands late would otherwise report a
+        // cadence of zero or of the polling interval.
+        if (measured > 0 && measured < 5_000 && measured !== this.slotMs) {
           this.slotMs = measured;
-          this.meta = { ...this.meta, slot_ms: measured };
+          if (this.meta) this.meta = { ...this.meta, slot_ms: measured };
+          // The controller snapshots meta once at configure, so a changed cadence would
+          // never reach the UI. Announce it instead: it is an observed fact about devnet
+          // and the panel should not be the only place that learns it.
+          if (!this.cadenceReported) {
+            this.cadenceReported = true;
+            this.emit(
+              { type: 'log', msg: `measured devnet slot cadence: ${measured} ms per slot (mainnet is 400 ms)` },
+              nowUs,
+            );
+          }
         }
       }
       this.lastTipAtUs = nowUs;
