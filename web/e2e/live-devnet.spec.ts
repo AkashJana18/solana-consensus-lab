@@ -59,9 +59,10 @@ async function openLive(page: Page) {
 }
 
 /** The events feed is behind its tab; open it before asserting on its rows. */
-async function openFeed(page: Page) {
+async function openFeed(page: Page, scope: 'watched' | 'all' = 'watched') {
   await page.getByTestId('tab-events').click();
   await expect(page.getByTestId('event-feed')).toBeVisible();
+  if (scope === 'all') await page.getByTestId('feed-scope-all').click();
 }
 
 test('live mode traces devnet from the RPC and labels what it cannot see', async ({ page }) => {
@@ -77,7 +78,9 @@ test('live mode traces devnet from the RPC and labels what it cannot see', async
 
   await page.getByTestId('live-signature').fill(SIG);
   await page.getByTestId('live-watch').click();
-  await openFeed(page);
+  // The full stream: the feed hides block and slot traffic by default so that the watched
+  // transaction stays readable, and this test is about everything the RPC reports.
+  await openFeed(page, 'all');
 
   // A live run starts running by itself: there is nothing to step through.
   await expect(page.getByTestId('live-tip')).not.toHaveText('0', { timeout: 20_000 });
@@ -145,4 +148,37 @@ test('the other two modes are untouched by the live plumbing', async ({ page }) 
   await expect(page.getByTestId('play')).toHaveAttribute('aria-label', 'Pause');
   await openFeed(page);
   await expect(page.getByTestId('event-feed')).toContainText('ms', { timeout: 20_000 });
+});
+test('the live feed keeps the watched transaction readable under slot traffic', async ({ page }) => {
+  await mockDevnet(page, { slots: 6 });
+  await openLive(page);
+  await page.getByTestId('live-signature').fill(SIG);
+  await page.getByTestId('live-watch').click();
+  await openFeed(page);
+  const feed = page.getByTestId('event-feed');
+
+  // devnet emits roughly two rows per slot, so the transaction's own progress would scroll
+  // out of the rendered window within seconds. It is what the feed defaults to showing.
+  await expect(feed).toContainText('hero tx', { timeout: 20_000 });
+  await expect(feed).not.toContainText('block produced');
+  // And the reader is told rows are held back rather than silently missing them.
+  await expect(page.getByTestId('feed-count')).toContainText('slot/block rows hidden');
+
+  // Everything is still there, one click away.
+  await page.getByTestId('feed-scope-all').click();
+  await expect(feed).toContainText('block produced');
+  await expect(page.getByTestId('feed-count')).not.toContainText('hidden');
+
+  await page.getByTestId('feed-scope-watched').click();
+  await expect(feed).toContainText('hero tx');
+  await expect(feed).not.toContainText('block produced');
+});
+
+test('the scope control only exists where it means something', async ({ page }) => {
+  await page.goto('/?scenario=happy-path&mode=solo');
+  await page.getByTestId('tab-events').click();
+  await expect(page.getByTestId('event-feed')).toBeVisible({ timeout: 20_000 });
+  // Simulated runs are short and their event mix is already legible, so no scope switch.
+  await expect(page.getByTestId('feed-scope-all')).toHaveCount(0);
+  await expect(page.getByTestId('feed-count')).toContainText('shown · newest first');
 });

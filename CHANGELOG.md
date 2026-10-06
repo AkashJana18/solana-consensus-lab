@@ -27,6 +27,12 @@ module map and the explicit list of what is modelled versus simplified.
 - **The panels key on the selected protocol.** `util/protocolRun.ts` replaces
   `p === 'tower' ? tower : alpenglow` in three panels: that ternary type-checked fine with a
   third protocol and would have shown Alpenglow's data under a Devnet heading.
+- **The live feed shows the watched transaction by default.** devnet emits roughly two rows per
+  slot, so within seconds a transaction's own progress was buried under block and slot traffic
+  and scrolled out of the virtualised window. The events feed in live mode now defaults to the
+  rows that carry information about the transaction (`tx_stage`, `rpc_conn`, `slot_skipped`,
+  `log`) and says how many rows it is holding back, with an **All traffic** switch one click
+  away. Simulated runs are unaffected: their event mix is already legible.
 - **The top bar was re-measured.** The Devnet mode button added 56px to the segmented control,
   so min-content with every label up went 1499px to 1552px and the collapsed band 1064px to
   1120px. The label threshold moves 1520 to 1590 and the product-name threshold 1099 to 1149,
