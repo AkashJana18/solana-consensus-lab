@@ -15,5 +15,11 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: true,
     timeout: 60_000,
+    // GA4 is baked in at build time, so the e2e run needs an id to exercise. This is a
+    // placeholder, never the real property: the tag requests are stubbed in the specs and no
+    // page view from CI can reach GA. `reuseExistingServer` means a dev server already running
+    // without it would win, which is why the specs assert "not installed" rather than
+    // assuming either way.
+    env: { VITE_GA_ID: process.env.VITE_GA_ID ?? 'G-TESTID0000' },
   },
 });

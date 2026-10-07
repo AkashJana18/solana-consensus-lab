@@ -1,44 +1,68 @@
 import { expect, test } from '@playwright/test';
 
-const MEASUREMENT_ID = 'G-MH02XQ9SP4';
-
 /**
- * Google Analytics is a third-party script, so the only two things worth asserting are that
- * it is wired up and that its absence changes nothing. Nothing else in the app may depend
- * on it, which is the property these tests exist to hold.
+ * GA4 is configured at build time, so these tests drive it the way production does: by setting
+ * VITE_GA_ID before the dev server starts. The Playwright `webServer` block below does that,
+ * and the default value below is a placeholder so no run can ever report to the real property.
+ *
+ * What is worth asserting is not "did GA load". It is that the real production id cannot
+ * appear here at all, and that a blocked or slow tag stops nothing.
  */
-test('the GA4 tag loads and configures its measurement id', async ({ page }) => {
+
+const GA_ID = 'G-TESTID0000';
+const TAG_HOST = 'https://www.googletagmanager.com/**';
+
+test('the real production id is nowhere in the served app', async ({ page }) => {
+  // This suite runs with a placeholder id (see playwright.config.ts), so the loaded document
+  // must not reference the production property. That is what proves a CI run and a local
+  // clone cannot report page views to real analytics, whatever the harness is configured with.
+  await page.route(TAG_HOST, (route) => route.fulfill({ contentType: 'application/javascript', body: '' }));
+  await page.goto('/');
+  await expect(page.getByTestId('scenario-select')).toBeVisible();
+  await page.waitForTimeout(500);
+
+  const html = await page.content();
+  expect(html).not.toContain('G-MH02XQ9SP4');
+  // The served module graph too, since a client-side import could carry it.
+  const scripts = await page.evaluate(() =>
+    [...document.querySelectorAll('script[src]')].map((s) => (s as HTMLScriptElement).src),
+  );
+  for (const src of scripts) {
+    const body = await (await page.request.get(src)).text();
+    expect(body, src).not.toContain('G-MH02XQ9SP4');
+  }
+});
+
+test('the configured id is installed and queued before the tag loads', async ({ page }) => {
   const requested: string[] = [];
-  await page.route('https://www.googletagmanager.com/**', (route) => {
+  await page.route(TAG_HOST, (route) => {
     requested.push(route.request().url());
-    // Fulfilled rather than continued: the real tag is never called in tests, so the suite
-    // neither pings GA nor depends on the network.
-    return route.fulfill({
-      contentType: 'application/javascript',
-      body: 'window.dataLayer = window.dataLayer || [];',
-    });
+    // Fulfilled, not continued: the suite neither calls GA nor needs the network.
+    return route.fulfill({ contentType: 'application/javascript', body: '' });
   });
 
   await page.goto('/');
+  await expect(page.getByTestId('scenario-select')).toBeVisible();
 
-  expect(requested.some((u) => u.includes(`gtag/js?id=${MEASUREMENT_ID}`))).toBe(true);
+  await expect(page.locator(`script[src*="googletagmanager"][src*="${GA_ID}"]`)).toHaveCount(1, {
+    timeout: 10_000,
+  });
+  expect(requested.some((u) => u.includes(GA_ID))).toBe(true);
 
-  // The bootstrap queues before the tag arrives, which is what makes the call order safe.
   const queued = await page.evaluate(
-    () => (window as unknown as { dataLayer: unknown[] }).dataLayer?.map((a) => Array.from(a as ArrayLike<unknown>)),
+    () => (window as unknown as { dataLayer?: unknown[] }).dataLayer?.map((a) => Array.from(a as ArrayLike<unknown>)),
   );
-  expect(queued, 'dataLayer must exist even if the tag never loads').toBeTruthy();
-  expect(queued!.some((args) => args[0] === 'js')).toBe(true);
-  expect(queued!.some((args) => args[0] === 'config' && args[1] === MEASUREMENT_ID)).toBe(true);
+  expect(queued?.some((a) => a[0] === 'js')).toBe(true);
+  expect(queued?.some((a) => a[0] === 'config' && a[1] === GA_ID)).toBe(true);
 });
 
-test('a blocked GA tag does not stop the simulation', async ({ page }) => {
+test('a blocked tag does not stop the simulation', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 
   // The realistic failure: an extension, a privacy setting or a firewall drops the request.
-  await page.route('https://www.googletagmanager.com/**', (route) => route.abort('failed'));
+  await page.route(TAG_HOST, (route) => route.abort('failed'));
   await page.goto('/?scenario=happy-path&mode=alpenglow');
 
   await expect(page.locator('.canvas-caption .muted')).toContainText('slot', { timeout: 15_000 });
@@ -49,8 +73,23 @@ test('a blocked GA tag does not stop the simulation', async ({ page }) => {
   await expect(page.getByTestId('stage-alpenglow-finalized')).toHaveAttribute('data-reached', 'true', {
     timeout: 20_000,
   });
-  // And the failure surfaced nowhere as an application error. A blocked third-party request
-  // logs a network failure in the console, which is the browser's business, not ours.
+  // A blocked third-party request is the browser's problem to log, not an application error.
   const appErrors = errors.filter((e) => !/googletagmanager|net::ERR_FAILED|Failed to load resource/i.test(e));
   expect(appErrors, `app errors: ${appErrors.join('\n')}`).toEqual([]);
+});
+
+test('only one tag is installed, so page views cannot be counted twice', async ({ page }) => {
+  await page.route(TAG_HOST, (route) => route.fulfill({ contentType: 'application/javascript', body: '' }));
+  await page.goto('/');
+  await expect(page.getByTestId('scenario-select')).toBeVisible();
+  await expect(page.locator(`script[src*="${GA_ID}"]`)).toHaveCount(1, { timeout: 10_000 });
+
+  // A client-side navigation and a reload are the two things that could reinstall it.
+  await page.getByTestId('lessons-open').click();
+  await page.waitForTimeout(300);
+  await page.reload();
+  await expect(page.getByTestId('scenario-select')).toBeVisible();
+
+  // One per document load, which is correct: a reload is a genuinely new page view.
+  await expect(page.locator(`script[src*="${GA_ID}"]`)).toHaveCount(1, { timeout: 10_000 });
 });

@@ -26,6 +26,10 @@ Cargo.lock
 .env
 .env.local
 .env.*.local
+# web/.env.example is committed on purpose: it documents VITE_GA_ID without carrying a value
+# for anything but the dev-facing placeholder. The negation is needed because .env would
+# otherwise match it.
+!web/.env.example
 
 # Logs
 *.log
