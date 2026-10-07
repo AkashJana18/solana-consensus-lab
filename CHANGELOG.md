@@ -8,6 +8,17 @@ Companion documents, not duplicated here: [`CLAUDE.md`](CLAUDE.md) for commands 
 invariants that are load-bearing, [`docs/architecture.md`](docs/architecture.md) for the
 module map and the explicit list of what is modelled versus simplified.
 
+## 2026-10-07
+
+- **Google Analytics, off unless configured.** GA4 is installed by `web/src/analytics.ts` from
+  `VITE_GA_ID`, with nothing inlined in `index.html`, so a developer's clone sends nothing to
+  the production property. Unset is the default and installs no tag at all, and an id that is
+  not shaped like a GA4 measurement id is refused rather than injected: a typo shipped as a
+  live script tag collects nothing silently and for ever. `web/.env.example` documents the
+  variable, `web/.env.local` stays gitignored, and production sets it in the Vercel project.
+  Because the id is baked in at build time, changing it needs a rebuild rather than a redeploy.
+  Vercel Analytics continues to run alongside and the two are independent.
+
 ## 2026-10-05
 
 - **README rewritten in plain English**, 126 lines and 1,578 words down to 97 and 672. The

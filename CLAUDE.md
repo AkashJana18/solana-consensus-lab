@@ -48,6 +48,14 @@ is the type check. CI (`.github/workflows/ci.yml`) runs cargo test → wasm buil
 → (bun test + bun build) and (Playwright e2e) in parallel. Production deploys
 from `main` through the linked Vercel project.
 
+GA4 is installed at runtime by `web/src/analytics.ts` from `VITE_GA_ID`, with
+no tag in `index.html`. Unset is the default, so a clone is silent, and an id
+of the wrong shape is refused rather than injected. `web/.env.example`
+documents it and `web/.env.local` is gitignored. Changes there must keep
+`test/analytics.test.ts` covering the unset, invalid, installed and
+repeat-install cases; `e2e/analytics.spec.ts` runs against a placeholder id
+and asserts the real one appears nowhere in the served app.
+
 `web/package.json` pins `@swc/core ~1.12.14` via `overrides` because
 `vite-plugin-top-level-await` breaks with 1.16. Leave it.
 
@@ -169,9 +177,9 @@ taught you to ignore `git status`; `lesson.spec.ts` follows the
 Skip-certificates lesson, `share.spec.ts` restores a share link,
 `keyboard.spec.ts` holds the keyboard contract, `responsive.spec.ts` is the only
 guard on layout below the 1440px Playwright viewport, `timeline.spec.ts` covers
-the memoised layers, and `node-picker.spec.ts` covers the node picker and the
-canvas's accessible name. The Events feed is virtualised, so e2e assertions on it
-can only see the newest rows.
+the memoised layers, `node-picker.spec.ts` covers the node picker and the
+canvas's accessible name, and `analytics.spec.ts` covers the GA4 tag. The Events
+feed is virtualised, so e2e assertions on it can only see the newest rows.
 
 ## Note
 
