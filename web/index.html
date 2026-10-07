@@ -34,6 +34,25 @@
     <meta name="twitter:description" content="Watch one transaction cross Solana's consensus under TowerBFT and Alpenglow, side by side. A free, open-source simulator with guided lessons." />
     <meta name="twitter:image" content="https://www.solanaconsensuslab.com/og.png" />
     <meta name="twitter:image:alt" content="Solana Consensus Lab: from 12.8 seconds to 150 milliseconds." />
+
+    <!-- Google Analytics (GA4). Kept deliberately plain: the async tag plus the dataLayer
+         bootstrap, no plugin layer, because the only events worth counting are page views
+         and outbound clicks, which GA4 collects on its own. `async` means a slow or blocked
+         tag cannot delay first render, and the inline bootstrap is wrapped in try/catch by
+         the browser's own error handling rather than by this app: if the third-party script
+         fails to load, `window.dataLayer` still exists, so later calls queue instead of
+         throwing inside our code. Vercel Analytics also runs (see src/main.tsx); the two
+         are independent and either can be removed without touching the other.
+         Verify in the network tab that the request to googletagmanager.com fires. -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-MH02XQ9SP4"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() {
+        dataLayer.push(arguments);
+      }
+      gtag('js', new Date());
+      gtag('config', 'G-MH02XQ9SP4');
+    </script>
   </head>
   <body>
     <div id="root"></div>
