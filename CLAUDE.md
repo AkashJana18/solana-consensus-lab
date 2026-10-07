@@ -164,8 +164,10 @@ Tower roots never conflict, determinism over all builtin scenarios).
 seeds every run, so a newly found failure stays failing until fixed). Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
 `breakpoint` (every trigger), `markdown`, and `lessons` (registry integrity);
-`e2e/live-devnet.spec.ts` traces a mocked devnet RPC end to end and asserts the
-app says plainly what an RPC cannot report, `e2e/smoke.spec.ts` and
+`e2e/live-devnet.spec.ts` traces a mocked devnet RPC end to end, covers the
+wallet send path against a mock that registers like a real extension, and
+asserts the app says plainly what an RPC cannot report, `e2e/analytics.spec.ts`
+covers the GA4 tag and that a blocked one stops nothing, `e2e/smoke.spec.ts` and
 `compare.spec.ts` capture the screenshots in
 `web/e2e/screenshots/` that the README embeds, through `e2e/capture.ts`. The
 capture happens on every run but the write is opt-in (`bun run e2e:screenshots`),

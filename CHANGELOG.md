@@ -25,6 +25,22 @@ module map and the explicit list of what is modelled versus simplified.
   System transfer is index 2 then a little-endian u64, against `1111…1111`, and the test
   asserts those twelve bytes literally. A local keypair confirmed devnet parses and executes
   it: the attempt reached the System program's debit logic and failed only for want of funds.
+- **Google Analytics, next to the Vercel Analytics already here.** The async GA4 tag and
+  its `dataLayer` bootstrap in `index.html`, no plugin layer, since page views and outbound
+  clicks are what GA4 collects unaided. `e2e/analytics.spec.ts` asserts the tag is requested
+  and the measurement id configured, then aborts the request outright and asserts the
+  simulation still finishes with no application error, because a blocked third-party script
+  is the failure that actually happens.
+- **A lesson on what an outside observer cannot see.** `observed-vs-modeled` runs the new
+  `devnet-shape` scenario and sets a modeled run beside a real devnet trace: both show blocks
+  and skipped slots, only the model shows votes and certificates. The lesson's copy is written
+  from the CLI trace, and it says plainly that the scenario is a shape and not a replica.
+- **`devnet-shape`, a scenario built from a measurement.** Two things were checked against
+  `api.devnet.solana.com`: devnet runs a slot every ~250 ms (three independent ways) and
+  produced a block in all 1,989 sampled slots, so no Skip certificate was externally visible
+  then. `slot_ms` is pinned to 250 with no faults off, and a test asserts blocks equal slots
+  so the claim cannot drift. It does not invent a skip to be more interesting: a scenario
+  that skipped slots would model a devnet nobody observed.
 - **Live devnet tracing.** A fourth top-bar mode that watches a real transaction on
   `api.devnet.solana.com` and renders it through the existing timeline, transaction stepper and
   events feed. Paste a signature, or connect a devnet wallet; the app never creates or holds a
