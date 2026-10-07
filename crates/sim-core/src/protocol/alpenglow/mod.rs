@@ -707,6 +707,38 @@ mod tests {
     /// §1.3, and reports a median of roughly 150 ms for randomly chosen leaders (Fig. 14). The
     /// scenario's transaction rides the block's last slice, so inclusion and distribution
     /// coincide; both the median node and the transaction must land on that number.
+    /// `devnet-shape` exists to reproduce a *measurement* of the public devnet cluster, taken
+    /// on 7 Oct 2026: a slot every ~250 ms, and a block in every sampled slot (1,989 of 1,989,
+    /// so no Skip certificate was externally visible then). The lesson's central claim is that
+    /// this scenario has no empty slot, so that claim is pinned here rather than left to the
+    /// scenario file. If a parameter change later produces a skip, the lesson stops matching
+    /// the thing it is teaching and this test says so.
+    #[test]
+    fn devnet_shape_produces_a_block_in_every_slot() {
+        let json = crate::scenario::builtin("devnet-shape").expect("devnet-shape is a builtin scenario");
+        let (_sim, tr) = run(json);
+        let m = Metrics::from_trace(&tr);
+        assert_eq!(
+            m.certificates.get("skip").copied().unwrap_or(0),
+            0,
+            "devnet-shape models a run with no empty slot, so it must never form a Skip certificate: {:?}",
+            m.certificates
+        );
+        assert_eq!(
+            m.blocks_produced, m.slots_started,
+            "every slot must produce a block: {} blocks in {} slots",
+            m.blocks_produced, m.slots_started
+        );
+
+        // The measured cadence is a scenario parameter, not an accident of the schedule.
+        let scenario = crate::scenario::Scenario::from_json(json).expect("devnet-shape parses");
+        assert_eq!(
+            scenario.params.slot_ms, 250,
+            "devnet-shape pins the measured devnet slot time of ~250 ms"
+        );
+        assert!(m.tx_stage_ms.contains_key("finalized"), "hero tx never finalized");
+    }
+
     #[test]
     fn ideal_matches_the_papers_150ms_median() {
         let json = crate::scenario::builtin("ideal").expect("ideal is a builtin scenario");

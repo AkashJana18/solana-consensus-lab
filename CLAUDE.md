@@ -92,7 +92,7 @@ rebuilds a fresh `Sim` and fast-forwards) both depend on it. Avoid `HashMap`
 iteration order in anything that affects behavior (code uses `BTreeMap`/`BTreeSet`).
 `Simulator` is fully serde-serializable for `snapshot`/`restore`.
 
-**Scenarios** are JSON with defaults for every field (`scenario.rs`). The six
+**Scenarios** are JSON with defaults for every field (`scenario.rs`). The seven
 in `scenarios/` are `include_str!`-embedded as `scenario::BUILTIN`, so they ship
 inside the wasm too; adding one means adding the file and the `BUILTIN` entry
 (then rebuild the wasm; `test/lessons.test.ts` reads the directory).

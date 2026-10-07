@@ -1,0 +1,15 @@
+{
+  "name": "devnet-shape",
+  "description": "A modeled run shaped like devnet, measured on 7 Oct 2026. Two things were checked against api.devnet.solana.com and only two: devnet runs a slot every ~250 ms (measured three ways, see the note below), and it produced a block in all 1,989 slots sampled across a 2,000-slot window, so no Skip certificate was externally visible during the sample. This scenario sets slot_ms to 250 and takes no faults off, which is what a run with a block in every slot looks like. It is NOT a replica of devnet and will not stay accurate: the moment devnet skips a slot, or slows down, this scenario is wrong, and that is the point of running it beside your own observed trace. Use it to compare what an outside observer sees against what the model says must have happened inside. The two disagree in a specific, instructive way: devnet will not tell you a single vote, notarization or certificate, while this run reports every one of them. Everything devnet does show, this scenario reproduces only in shape, not in content.",
+  "seed": 1,
+  "duration_ms": 4000,
+  "validators": {
+    "count": 25
+  },
+  "params": {
+    "slot_ms": 250
+  },
+  "hero_tx": {
+    "submit_at_ms": 180
+  }
+}

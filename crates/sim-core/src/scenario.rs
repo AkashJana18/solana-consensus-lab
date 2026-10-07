@@ -14,6 +14,7 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("leader-down", include_str!("../../../scenarios/leader-down.json")),
     ("partition-heal", include_str!("../../../scenarios/partition-heal.json")),
     ("twenty-twenty", include_str!("../../../scenarios/twenty-twenty.json")),
+    ("devnet-shape", include_str!("../../../scenarios/devnet-shape.json")),
 ];
 
 pub fn builtin(name: &str) -> Option<&'static str> {
