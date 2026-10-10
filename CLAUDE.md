@@ -69,7 +69,10 @@ flowchart LR
     TRACE --> WASM["sim-wasm"] --> WEB["web · Worker ▸ EventBuffer ▸ Controller ▸ PixiJS + React"]
 ```
 
-**Everything observable is a trace event.** `crates/sim-core/src/trace.rs`
+**Everything observable is a trace event**, including the live devnet run:
+`web/src/engine/liveClient.ts` is a second producer, emitting the same union
+from a public RPC and allowed to emit only what an RPC can honestly report.
+`crates/sim-core/src/trace.rs`
 defines `TraceEvent`; the CLI, `metrics.rs`, the property tests and the UI all
 consume only this stream. If the UI needs to show something new, add a trace
 event (and mirror it in `web/src/engine/types.ts` and `docs/wasm-api.md`),
@@ -97,7 +100,7 @@ rebuilds a fresh `Sim` and fast-forwards) both depend on it. Avoid `HashMap`
 iteration order in anything that affects behavior (code uses `BTreeMap`/`BTreeSet`).
 `Simulator` is fully serde-serializable for `snapshot`/`restore`.
 
-**Scenarios** are JSON with defaults for every field (`scenario.rs`). The six
+**Scenarios** are JSON with defaults for every field (`scenario.rs`). The seven
 in `scenarios/` are `include_str!`-embedded as `scenario::BUILTIN`, so they ship
 inside the wasm too; adding one means adding the file and the `BUILTIN` entry
 (then rebuild the wasm; `test/lessons.test.ts` reads the directory).
@@ -169,7 +172,11 @@ Tower roots never conflict, determinism over all builtin scenarios).
 seeds every run, so a newly found failure stays failing until fixed). Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
 `breakpoint` (every trigger), `markdown`, and `lessons` (registry integrity);
-`e2e/smoke.spec.ts` and `compare.spec.ts` capture the screenshots in
+`e2e/live-devnet.spec.ts` traces a mocked devnet RPC end to end, covers the
+wallet send path against a mock that registers like a real extension, and
+asserts the app says plainly what an RPC cannot report, `e2e/analytics.spec.ts`
+covers the GA4 tag and that a blocked one stops nothing, `e2e/smoke.spec.ts` and
+`compare.spec.ts` capture the screenshots in
 `web/e2e/screenshots/` that the README embeds, through `e2e/capture.ts`. The
 capture happens on every run but the write is opt-in (`bun run e2e:screenshots`),
 because rewriting tracked PNGs on every run dirtied the tree over antialiasing and

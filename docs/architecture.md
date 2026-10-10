@@ -81,6 +81,8 @@ flowchart TB
 | `crates/sim-wasm/src/lib.rs` | `Sim` (new / runUntil / step / inspect / metrics / snapshot) | Mirrors `docs/wasm-api.md` |
 | `crates/sim-cli/src/main.rs` | Headless entry point | CSV export for sweeps |
 | `web/src/engine/` | Worker protocol, display clock, event buffer, breakpoints | The render loop |
+| `web/src/engine/liveClient.ts`, `runSource.ts` | The live producer: polls `api.devnet.solana.com` and emits the same `Traced` union. `RunSource` is the seam both producers satisfy | Behind Start, and only reached once a trace is asked for |
+| `web/src/engine/devnetSend.ts` | Builds a real System transfer, has a wallet sign it, broadcasts, returns the signature | Dynamically imported, so the simulator never loads the Solana SDK |
 | `web/src/store/` | zustand store + `RunView` (events → panel state) | |
 | `web/src/render/` | PixiJS scene, pooled particles, ring layout, path interpolation | |
 | `web/src/components/` | Brand (the project mark), TopBar + ClockReadout, Timeline, Inspector + NodePicker, Modal, Tooltip (`data-tip` driven), the Transaction/Votor/Tower/Events/Metrics panels, lessons | |
