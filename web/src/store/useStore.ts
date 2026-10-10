@@ -2,13 +2,18 @@ import { create } from 'zustand';
 import type { Protocol, Traced } from '../engine/types';
 import { emptyView, type RunView } from './runView';
 
-export type Mode = 'alpenglow' | 'tower' | 'compare';
+export type Mode = 'alpenglow' | 'tower' | 'compare' | 'live';
 export type Tab = 'transaction' | 'votor' | 'tower' | 'events' | 'metrics';
 
 export const SPEEDS = [0.1, 0.25, 0.5, 1, 2, 5, 20] as const;
 
 export function protocolsFor(mode: Mode): Protocol[] {
   return mode === 'compare' ? ['alpenglow', 'tower'] : [mode];
+}
+
+/** Live devnet tracing observes a real cluster, so it is never compared side by side. */
+export function isLive(mode: Mode): boolean {
+  return mode === 'live';
 }
 
 /** Per-step phase of a lesson: waiting for the prediction, running to the stop, or showing the explainer. */

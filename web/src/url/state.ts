@@ -3,7 +3,7 @@
 // the store keeps microseconds; convert at the boundary.
 import { SPEEDS, type Mode, type Tab } from '../store/useStore';
 
-const MODES: readonly Mode[] = ['alpenglow', 'tower', 'compare'];
+const MODES: readonly Mode[] = ['alpenglow', 'tower', 'compare', 'live'];
 const TABS: readonly Tab[] = ['transaction', 'votor', 'tower', 'events', 'metrics'];
 
 export interface UrlState {
