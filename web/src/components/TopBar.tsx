@@ -10,6 +10,7 @@ const MODES: { id: Mode; label: string; hint: string }[] = [
   { id: 'alpenglow', label: 'Alpenglow', hint: 'Alpenglow only (SIMD-0326)' },
   { id: 'tower', label: 'TowerBFT', hint: 'TowerBFT only, the current mainnet protocol' },
   { id: 'compare', label: 'Compare', hint: 'Both protocols side by side on the same scenario' },
+  { id: 'live', label: 'Devnet', hint: 'Trace a real transaction on devnet. Alpenglow runs there today; the votes stay off-chain' },
 ];
 
 /** The public repo this lab is built from. The link and the star count both key off it. */
@@ -140,7 +141,7 @@ function RepoLink() {
 function ClockReadout() {
 
   const displayTime = useStore((s) => s.displayTime);
-  const slotMs = useStore((s) => s.runs.alpenglow?.meta?.slot_ms ?? s.runs.tower?.meta?.slot_ms ?? 400);
+  const slotMs = useStore((s) => s.runs.alpenglow?.meta?.slot_ms ?? s.runs.tower?.meta?.slot_ms ?? s.runs.live?.meta?.slot_ms ?? 400);
   return (
     <div className="readout" aria-live="off" data-testid="readout">
       <span className="readout-time">{(displayTime / 1000).toFixed(1)}</span>

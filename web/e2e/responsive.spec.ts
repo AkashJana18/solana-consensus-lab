@@ -17,7 +17,7 @@ async function topBarOverflow(page: Page): Promise<number> {
  * 1520px rule was never exercised at the width it decides. Re-measure with
  * scripts/measure-topbar.ts before changing either threshold.
  */
-const WIDTHS = [1700, 1600, 1560, 1520, 1440, 1366, 1280, 1024];
+const WIDTHS = [1800, 1700, 1631, 1630, 1600, 1500, 1451, 1450, 1440, 1366, 1280, 1024];
 
 test('the top bar fits laptop widths without clipping the readout', async ({ page }) => {
   const errors: string[] = [];
@@ -134,17 +134,17 @@ test('the app stays usable below 1024px instead of clipping', async ({ page }) =
 });
 
 test('the product name stays in the top bar until the bar cannot hold it', async ({ page }) => {
-  // The control labels collapse at 1560px, but the product name is not one of them: it is
+  // The control labels collapse at 1630px, but the product name is not one of them: it is
   // the one label worth keeping, and hiding it is what made the bar look anonymous. The
-  // worst case is leader-down (a 20s clock), compare and 20x, which needs 1070px of bar on
-  // macOS and 1112px on the CI runner; 1150 clears the larger of those with 38px to spare.
+  // worst case is leader-down (a 20s clock), compare and 20x, which needs 1229px of bar on
+  // macOS; 1300 clears the CI runner's estimated 1277.
   for (const [width, visible] of [
     [1440, true],
     [1366, true],
-    [1280, true],
-    [1200, true],
-    [1150, true],
-    [1149, false],
+    [1300, true],
+    [1299, false],
+    [1280, false],
+    [1200, false],
     [1024, false],
   ] as [number, boolean][]) {
     await page.setViewportSize({ width, height: 900 });
@@ -158,8 +158,8 @@ test('the product name stays in the top bar until the bar cannot hold it', async
     await expect(page.locator('.brand-mark svg')).toHaveCSS('height', '24px');
     expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
 
-    // With the name showing the bar needs 1070px in the worst case (20s scenario, 20x
-    // speed, compare), so the document must never scroll. See the note by the 1149px rule
+    // With the name showing the bar needs 1229px in the worst case (20s scenario, 20x
+    // speed, compare), so the document must never scroll. See the note by the 1299px rule
     // in global.css and scripts/measure-topbar.ts for how to re-measure it.
     const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
