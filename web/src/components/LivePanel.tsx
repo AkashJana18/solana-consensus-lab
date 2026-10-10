@@ -3,6 +3,54 @@ import { controller } from '../engine/controller';
 import { useStore } from '../store/useStore';
 import { PROTOCOL_LABEL } from '../util/format';
 
+/** The legacy provider some wallets still expose, and the only thing that can hand over a public key. */
+interface LegacyProvider {
+  publicKey?: { toString(): string } | null;
+  connect(): Promise<{ publicKey: { toString(): string } }>;
+}
+
+function legacyWallet(): LegacyProvider | null {
+  const w = (window as unknown as { solana?: LegacyProvider }).solana;
+  return w && typeof w.connect === 'function' ? w : null;
+}
+
+/** What a wallet is for, once found: whichever of the two paths can produce a public key. */
+type Wallet =
+  | { kind: 'standard'; getAddress(): Promise<string> }
+  | { kind: 'legacy'; getAddress(): Promise<string> };
+
+/**
+ * Find a wallet the same way the signing code does.
+ *
+ * The previous version gated the Connect button on `window.solana` but signed through Wallet
+ * Standard, which are two different discovery paths. A wallet that speaks only Wallet Standard,
+ * which is most of them now, was invisible to the panel even though the sender would have
+ * found it: the button never appeared, so the feature was unreachable for exactly the wallets
+ * it was built for. One discovery path, and the legacy provider only as a fallback.
+ */
+async function findWallet(): Promise<Wallet | null> {
+  try {
+    const { findDevnetWallet } = await import('../engine/devnetSend');
+    const w = await findDevnetWallet();
+    if (w) {
+      return {
+        kind: 'standard',
+        getAddress: async () => w.accounts[0].address,
+      };
+    }
+  } catch {
+    /* discovery is best effort; the legacy provider below may still work */
+  }
+  const legacy = legacyWallet();
+  if (legacy) {
+    return {
+      kind: 'legacy',
+      getAddress: async () => (await legacy.connect()).publicKey.toString(),
+    };
+  }
+  return null;
+}
+
 /**
  * Capture panel for a live devnet run.
  *
@@ -20,9 +68,27 @@ export function LivePanel() {
   const run = useStore((s) => s.runs.live);
   const [signature, setSignature] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [pubkey, setPubkey] = useState<string | null>(null);
+  const [amount, setAmount] = useState('0.01');
+  const [recipient, setRecipient] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
 
   const watched = run?.txStages.submitted?.detail ?? null;
   const running = controller.liveRunning;
+
+  // Discovery is async and the module is lazily imported, so the button appears when the
+  // answer arrives rather than on first paint. Nobody without an extension ever sees it.
+  useEffect(() => {
+    let cancelled = false;
+    void findWallet().then((w) => {
+      if (!cancelled) setWallet(w);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // The store starts with no signature, so show the one already being traced after a reload
   // of the panel rather than pretending nothing is watched. This only fills the field; it
@@ -46,6 +112,67 @@ export function LivePanel() {
   const stop = () => {
     controller.stopLive();
     setMessage('Stopped. Nothing is being polled.');
+  };
+
+  const connect = async () => {
+    if (!wallet || busy) return;
+    setBusy(true);
+    setMessage(null);
+    try {
+      const address = await wallet.getAddress();
+      setPubkey(address);
+      // Self-transfer by default: sending to the connected account needs no second address
+      // and cannot put devnet SOL anywhere a visitor did not ask for.
+      setRecipient((current) => current || address);
+      setMessage(`Connected ${address.slice(0, 4)}…. Send a transfer below and it is traced as it lands.`);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'The wallet refused to connect.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  /**
+   * Build, sign and broadcast one devnet transfer, then trace it.
+   *
+   * The client library is imported here rather than at module scope so the simulator's
+   * bundle never carries it: someone who only ever runs the modeled modes never downloads
+   * a Solana SDK. Any failure becomes one plain sentence from `describeSendError`, because
+   * a raw codec or RPC error tells a visitor nothing about what to do next.
+   */
+  const send = async () => {
+    if (!pubkey || sending) return;
+    setSending(true);
+    setMessage(null);
+    try {
+      const { address, sendTransfer, solToLamports } = await import('../engine/devnetSend');
+      const lamports = solToLamports(amount);
+      if (!lamports) {
+        setMessage(`"${amount}" is not an amount of devnet SOL. Try something like 0.01.`);
+        return;
+      }
+      let to: ReturnType<typeof address>;
+      try {
+        to = address(recipient.trim() || pubkey);
+      } catch {
+        setMessage('That recipient is not a Solana address.');
+        return;
+      }
+      const sent = await sendTransfer({ from: address(pubkey), to, lamports });
+      // Start tracing immediately. Waiting for the paste step would leave the one moment
+      // worth watching, the part before the transaction is seen at all, unobserved. Sending
+      // is an explicit request to watch, so it starts the loop too.
+      setSignature(sent);
+      controller.watchLive(sent);
+      setMessage(`Sent ${amount} SOL from ${pubkey.slice(0, 4)}… to ${to.slice(0, 4)}…. Tracing ${sent.slice(0, 8)}…`);
+    } catch (e) {
+      // A second dynamic import, but it resolves from cache by now: the first one already
+      // pulled the module in, and this path only runs after it was needed.
+      const { describeSendError, toSendError } = await import('../engine/devnetSend');
+      setMessage(describeSendError(toSendError(e)));
+    } finally {
+      setSending(false);
+    }
   };
 
   const commitment = run?.commitment;
@@ -81,7 +208,45 @@ export function LivePanel() {
             Start
           </button>
         )}
+        {wallet && !pubkey && (
+          <button onClick={() => void connect()} disabled={busy} data-testid="live-connect">
+            {busy ? 'Connecting…' : 'Connect devnet wallet'}
+          </button>
+        )}
       </div>
+
+      {pubkey && (
+        <div className="live-inputs" data-testid="live-send">
+          <label className="field" data-tip="Amount of devnet SOL, up to 9 decimals">
+            <span>Amount</span>
+            <input
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              aria-label="Amount of devnet SOL"
+              data-testid="live-amount"
+              disabled={sending}
+            />
+          </label>
+          <label className="field" data-tip="Devnet address to send to. Defaults to your own account.">
+            <span>Recipient</span>
+            <input
+              value={recipient}
+              onChange={(e) => setRecipient(e.target.value)}
+              aria-label="Recipient address"
+              data-testid="live-recipient"
+              disabled={sending}
+            />
+          </label>
+          <button onClick={() => void send()} disabled={sending} data-testid="live-send-button">
+            {sending ? 'Waiting for signature…' : 'Send on devnet'}
+          </button>
+          <p className="muted small send-note">
+            The wallet signs; this app never sees the key. Sending uses anonymous devnet RPC, which
+            rate limits: if the button reports a limit, wait a few seconds. A self-transfer is the
+            simplest thing that lands.
+          </p>
+        </div>
+      )}
 
       {message && (
         <p className="live-note" role="status" data-testid="live-note">
