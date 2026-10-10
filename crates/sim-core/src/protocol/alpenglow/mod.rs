@@ -764,6 +764,35 @@ mod tests {
         assert!(sim.nodes.iter().all(|n| n.highest_finalized_slot.is_some()));
     }
 
+    /// `devnet-shape` exists to reproduce a *measurement* of the public devnet cluster, taken
+    /// on 7 Oct 2026: a slot every ~250 ms, and a block in every sampled slot (1,989 of 1,989,
+    /// so no Skip certificate was externally visible then). The lesson built on this scenario
+    /// claims it has no empty slot, so that claim is pinned here rather than left resting on
+    /// the scenario file. If a later parameter change produces a skip, the lesson stops
+    /// matching the thing it teaches and this test says so.
+    #[test]
+    fn devnet_shape_produces_a_block_in_every_slot() {
+        let json = crate::scenario::builtin("devnet-shape").expect("devnet-shape is a builtin scenario");
+        let (_sim, tr) = run(json);
+        let m = Metrics::from_trace(&tr);
+        assert_eq!(
+            m.certificates.get("skip").copied().unwrap_or(0),
+            0,
+            "devnet-shape models a run with no empty slot, so it must never form a Skip certificate: {:?}",
+            m.certificates
+        );
+        assert_eq!(
+            m.blocks_produced, m.slots_started,
+            "every slot must produce a block: {} blocks in {} slots",
+            m.blocks_produced, m.slots_started
+        );
+        assert!(m.tx_stage_ms.contains_key("finalized"), "hero tx never finalized: {:?}", m.tx_stage_ms);
+
+        // The measured cadence is a scenario parameter, not an accident of the schedule.
+        let scenario = crate::scenario::Scenario::from_json(json).expect("devnet-shape parses");
+        assert_eq!(scenario.params.slot_ms, 250, "devnet-shape pins the measured devnet slot time of ~250 ms");
+    }
+
     #[test]
     fn offline_quarter_uses_slow_path() {
         let (_, tr) = run(r#"{"name":"offline","duration_ms":8000,"validators":{"count":25},
