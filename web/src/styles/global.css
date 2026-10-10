@@ -354,7 +354,16 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 @media (max-width: 1630px) {
   .topbar .lbl { display: none; }
 }
-@media (max-width: 1400px) {
+/* Second compaction: shed the "Scenario" and "Seed" field labels (both keep their tooltips
+   and aria-labels), tighten the gap and the segmented control's padding.
+   1450, up from 1400, and this is the threshold that actually governs the bar's fit. Measured
+   on the CI runner, not on a developer machine: with the Devnet button in the segmented
+   control the bar needs 1444px in this band, so a 1440px viewport overflowed by 4px while
+   1500px fitted, because the rule below only switched on at 1400. A band that overflows in
+   the middle and not at either end is a threshold in the wrong place, and no amount of
+   local measurement finds it, because macOS and the CI runner resolve `system-ui` to fonts
+   that disagree by a couple of hundred pixels across this bar. */
+@media (max-width: 1450px) {
   .topbar { gap: 8px; }
   .field > span { display: none; }
   .readout { min-width: 0; }
@@ -400,14 +409,18 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .topbar::-webkit-scrollbar { display: none; }
 }
-/* Last to go: the product name. Measured in the worst case, not a lucky one --
-   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1229px of
-   bar on macOS and 1112px of the same bar without the Devnet button. Below that width the
-   protocol-mode control starts clipping and the document scrolls sideways, so the name has to
-   go first. 1300 clears the runner's estimated 1277; 1100 left nothing at all, which is why
-   every CI run between 5 and 7 Oct failed here with "the document scrolls sideways at
-   1100px" (1112 > 1100). The figure committed before that was 1064px with a claimed 36px of
-   margin, and 1064 + 36 is not 1100: it was a number nobody re-measured.
+/* Last to go: the product name.
+   Measured on the CI runner by forcing the wordmark on and walking the worst-case URL
+   (leader-down, so a "20000.0" clock, compare, 20x) down: the document still fits at 1200px
+   with the wordmark shown, so this threshold is now well clear of where the bar actually
+   breaks and exists to keep the name off the narrowest band rather than to chase a number.
+
+   It did once chase one. 1100 was set from a 1064px measurement taken on a developer machine
+   and carried a claimed 36px margin, which 1064 + 36 does not provide. The CI runner needs
+   1112px there, so every run between 5 and 7 Oct failed with "the document scrolls sideways
+   at 1100px". The lesson is in scripts/measure-topbar.ts: a threshold measured on your own
+   machine is a guess about a different one, and the two disagree by more than a hundred
+   pixels across this bar.
 
    Re-measure after touching anything in the bar, with scripts/measure-topbar.ts, which walks
    the worst-case URL down with the wordmark forced on and reports the narrowest width that
