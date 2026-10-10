@@ -17,7 +17,7 @@ async function topBarOverflow(page: Page): Promise<number> {
  * 1520px rule was never exercised at the width it decides. Re-measure with
  * scripts/measure-topbar.ts before changing either threshold.
  */
-const WIDTHS = [1800, 1700, 1631, 1630, 1600, 1440, 1366, 1280, 1024];
+const WIDTHS = [1800, 1700, 1631, 1630, 1600, 1500, 1451, 1450, 1440, 1366, 1280, 1024];
 
 test('the top bar fits laptop widths without clipping the readout', async ({ page }) => {
   const errors: string[] = [];
