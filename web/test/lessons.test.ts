@@ -9,8 +9,10 @@ const scenarioNames = readdirSync(fileURLToPath(new URL('../../scenarios', impor
   .map((f) => f.replace(/\.json$/, ''));
 
 describe('lesson registry', () => {
-  it('has five lessons with unique ids', () => {
-    expect(LESSONS.length).toBe(5);
+  it('has six lessons with unique ids', () => {
+    // Named rather than derived from LESSONS.length, so adding a lesson cannot quietly
+    // make this assertion agree with itself.
+    expect(LESSONS.length).toBe(6);
     expect(new Set(LESSONS.map((l) => l.id)).size).toBe(LESSONS.length);
     for (const l of LESSONS) expect(lessonById(l.id)).toBe(l);
     expect(lessonById('nope')).toBeUndefined();

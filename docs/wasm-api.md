@@ -1,8 +1,30 @@
 # Engine ↔ UI contract
 
-The web UI never simulates anything. It drives a WebAssembly build of `sim-core`
-through the `Sim` class below and renders the **trace events** it returns.
-`docs/architecture.md` §7 shows where these calls sit in the render pipeline.
+The web UI never simulates anything. For a simulated run it drives a
+WebAssembly build of `sim-core` through the `Sim` class below and renders the
+**trace events** it returns. `docs/architecture.md` §7 shows where these calls
+sit in the render pipeline.
+
+One exception, added with live devnet tracing: `web/src/engine/liveClient.ts`
+produces the same `Traced` union from `api.devnet.solana.com` instead of from
+`sim-core`, and satisfies the same `RunSource` interface (`runSource.ts`) that
+`SimClient` does. Rust owns trace *generation*; JavaScript owns trace *ingestion*,
+and a live run emits only what a public RPC can honestly report:
+
+| Event | Emitted by a live run | From |
+|---|---|---|
+| `slot_start` | yes | `getSlot` |
+| `block_produced` | yes, `leader` and `vote_txs` synthetic | `getBlocks` |
+| `slot_skipped` | yes (live-only event, no block in that slot) | `getBlocks` returning null |
+| `commitment` | yes, `node` is a reserved RPC-observer id | `getSignatureStatuses` |
+| `tx_stage` | yes, for `included_in_block`, `confirmed`, `finalized` | `getSignatureStatuses` |
+| `log` | yes, carries the block's own `blockTime` | `getBlockTime` |
+| `rpc_conn` | yes (live-only event, the endpoint's state) | the client's own polling |
+| everything else | never | not observable from outside a validator |
+
+Alpenglow votes are off-chain gossip by design (SIMD-0326), so notarization
+votes, certificates, Pool events, Votor flags and Rotor relay choice are not
+visible to any outside observer and are never faked here.
 
 ## `Sim` (wasm-bindgen, package `sim-wasm`, imported from `web/src/wasm/pkg`)
 

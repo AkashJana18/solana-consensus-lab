@@ -107,3 +107,47 @@ test('a lesson link does not carry a stale t', async ({ page }) => {
   await expect(page).not.toHaveURL(/lesson=/);
   await expect(page).toHaveURL(/[?&]t=/);
 });
+
+test('the Observed vs modeled lesson runs end to end', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+
+  await page.goto('/');
+  await expect(page.getByTestId('scenario-select')).toBeVisible();
+  await page.getByTestId('lessons-open').click();
+  await page.getByTestId('lesson-pick-observed-vs-modeled').click();
+
+  // The lesson swaps in the measured scenario, so the first thing asserted is that the
+  // scenario really is the one built from the devnet measurement.
+  const panel = page.getByTestId('lesson-panel');
+  await expect(page.getByTestId('scenario-select')).toHaveValue('devnet-shape');
+  await expect(page.getByTestId('mode-alpenglow')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.locator('.canvas-caption .muted')).toContainText('slot', { timeout: 15_000 });
+
+  // Step 0 stops on the first block.
+  await page.getByTestId('lesson-next').click();
+  await expect(panel).toHaveAttribute('data-phase', 'reveal', { timeout: 20_000 });
+  await expect(page.getByTestId('lesson-step-0')).toHaveAttribute('data-state', 'current');
+
+  // Step 1 is the predict-then-run one. Answer index 1 is "nothing, votes are gossip",
+  // which is the point of the lesson and the answer key already holds.
+  await page.getByTestId('lesson-next').click();
+  await expect(panel).toHaveAttribute('data-phase', 'predict');
+  await page.getByTestId('lesson-choice-1').click();
+  await page.getByTestId('lesson-run').click();
+  await expect(panel).toHaveAttribute('data-phase', 'reveal', { timeout: 20_000 });
+  await expect(page.getByTestId('lesson-answer')).toHaveAttribute('data-correct', 'true');
+
+  // The certificate step, which is where the observed/modelled table is the lesson.
+  await page.getByTestId('lesson-next').click();
+  await expect(panel).toHaveAttribute('data-phase', 'reveal', { timeout: 20_000 });
+  // Unique to this step: the question's explainer also mentions gossip.
+  await expect(page.locator('.lesson-body')).toContainText('fast-finalization certificate');
+
+  // And the transaction still finalizes in this scenario, so the last step lands.
+  await page.getByTestId('lesson-next').click();
+  await expect(panel).toHaveAttribute('data-phase', 'reveal', { timeout: 20_000 });
+
+  expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
+});
