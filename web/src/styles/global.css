@@ -314,16 +314,18 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .type-tx_stage .chip-dot, .legend i { box-shadow: none !important; }
 }
 /* Two label thresholds, because the bar sheds labels in the order they matter least.
-   The top bar's min-content width with every label up is 1499px, so something has to give
+   The top bar's min-content width with every label up is 1484px, so something has to give
    before the viewport runs out. First to go are the labels hanging off the icon buttons
    (Lessons, Share, event, slot): they are the most redundant, they have tooltips, and they
    have aria-labels that survive the collapse. This was 1400px, before the source link
-   (.repo-link) added 73px of fixed width to the right edge -- at 1440 it only just fitted.
-   1520 leaves 28px of slack for another OS's font metrics; at 1500 it would be 8px.
+   (.repo-link) added 73px of fixed width to the right edge.
+   1560 leaves 34px of slack over the Linux CI renderer, which lays the same bar out about
+   42px wider than macOS does. At 1520 there was none at all: the committed figure was
+   measured on a developer machine, and the runner needs 1526. See scripts/measure-topbar.ts.
    Note .topbar .lbl rather than .transport .lbl: the Lessons button is outside .transport,
-   so it used to be the one control label this rule missed.
+   so it used to be the one control this rule missed.
    The product name is deliberately not in this list: it is the one label worth keeping. */
-@media (max-width: 1520px) {
+@media (max-width: 1560px) {
   .topbar .lbl { display: none; }
 }
 @media (max-width: 1400px) {
@@ -342,9 +344,9 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar { gap: 6px; }
   .segmented button { padding: 5px 6px; }
   .readout-slot { display: none; }
-  /* The star count rides on the 1099px rule at the bottom of this file: showing it down to
-     here would leave that threshold 5px of slack, which is not a budget. The mark stays at
-     every width -- the link to the source is the point, the number is only the news. */
+  /* The star count rides on the 1149px rule at the bottom of this file: showing it down to
+      here would eat most of that threshold's slack, which is not a budget. The mark stays at
+      every width -- the link to the source is the point, the number is only the news. */
   .repo-stars { display: none; }
 }
 /* Narrow: stack instead of clipping. The app used to carry min-width: 1024px while
@@ -372,15 +374,19 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar::-webkit-scrollbar { display: none; }
 }
 /* Last to go: the product name. Measured in the worst case, not a lucky one --
-   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1064px of
-   bar. Below that the protocol-mode control starts clipping and the document scrolls
-   sideways, so the name has to go first. 1100 leaves ~36px of slack for another OS's
-   font metrics; it could go to 1080, but not with a safe margin.
+   leader-down (20s, so a "20000.0" clock), compare mode, 20x speed, which needs 1070px of
+   bar on macOS and 1112px on the Linux CI runner. Below that the protocol-mode control
+   starts clipping and the document scrolls sideways, so the name has to go first.
+   1150 leaves 38px of slack over the runner; 1100 left none, which is why every CI run since
+   5 Oct failed here with "the document scrolls sideways at 1100px" (1112 > 1100). The
+   committed figure used to be 1064px with a claimed 36px of margin, and 1064 + 36 is not
+   1100 anyway: it was a number nobody re-measured.
 
-   Re-measure after touching anything in the bar: force display:inline on the wordmark at a
-   narrow viewport, load that worst-case URL, and look for any descendant where
-   scrollWidth > clientWidth (.segmented crops silently because it has overflow: hidden).
+   Re-measure after touching anything in the bar, with scripts/measure-topbar.ts, which walks
+   the worst-case URL down with the wordmark forced on and reports the narrowest width that
+   fits plus any descendant whose scrollWidth exceeds its clientWidth (.segmented crops
+   silently, because it has overflow: hidden, so it never reaches the document scrollbar).
    Then update this threshold, the comment above and e2e/responsive.spec.ts together. */
-@media (max-width: 1099px) {
+@media (max-width: 1149px) {
   .brand span:not(.brand-mark) { display: none; }
 }

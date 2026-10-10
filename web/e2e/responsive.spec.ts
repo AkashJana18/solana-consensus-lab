@@ -10,8 +10,14 @@ async function topBarOverflow(page: Page): Promise<number> {
   });
 }
 
-/** The labels collapse well below this, so the bar must never need more than the viewport. */
-const WIDTHS = [1440, 1366, 1280, 1024];
+/**
+ * The labels collapse at 1560px and the product name at 1149px, so the widest band worth
+ * probing is the one above the first threshold, where every label is still up. It used to be
+ * unguarded: this list topped out at 1440, which is *inside* the collapsed band, so the
+ * 1520px rule was never exercised at the width it decides. Re-measure with
+ * scripts/measure-topbar.ts before changing either threshold.
+ */
+const WIDTHS = [1700, 1600, 1560, 1520, 1440, 1366, 1280, 1024];
 
 test('the top bar fits laptop widths without clipping the readout', async ({ page }) => {
   const errors: string[] = [];
@@ -128,16 +134,17 @@ test('the app stays usable below 1024px instead of clipping', async ({ page }) =
 });
 
 test('the product name stays in the top bar until the bar cannot hold it', async ({ page }) => {
-  // The control labels collapse (in two steps, 1520px then 1400px), but the product name is
-  // not one of them: it is the one label worth keeping, and hiding it is what made the bar
-  // look anonymous.
+  // The control labels collapse at 1560px, but the product name is not one of them: it is
+  // the one label worth keeping, and hiding it is what made the bar look anonymous. The
+  // worst case is leader-down (a 20s clock), compare and 20x, which needs 1070px of bar on
+  // macOS and 1112px on the CI runner; 1150 clears the larger of those with 38px to spare.
   for (const [width, visible] of [
     [1440, true],
     [1366, true],
     [1280, true],
     [1200, true],
-    [1100, true],
-    [1099, false],
+    [1150, true],
+    [1149, false],
     [1024, false],
   ] as [number, boolean][]) {
     await page.setViewportSize({ width, height: 900 });
@@ -151,9 +158,9 @@ test('the product name stays in the top bar until the bar cannot hold it', async
     await expect(page.locator('.brand-mark svg')).toHaveCSS('height', '24px');
     expect(await name.isVisible(), `the product name should ${visible ? '' : 'not '}show at ${width}px`).toBe(visible);
 
-    // With the name showing the bar needs 1064px in the worst case (20s scenario, 20x
-    // speed, compare), so the document must never scroll. See the note by the 1099px rule
-    // in global.css for how to re-measure it after changing the bar.
+    // With the name showing the bar needs 1070px in the worst case (20s scenario, 20x
+    // speed, compare), so the document must never scroll. See the note by the 1149px rule
+    // in global.css and scripts/measure-topbar.ts for how to re-measure it.
     const scroll = await page.evaluate(() => ({ doc: document.documentElement.scrollWidth, inner: window.innerWidth }));
     expect(scroll.doc, `the document scrolls sideways at ${width}px`).toBeLessThanOrEqual(scroll.inner);
     // The clock is the last thing before the source link, so it is among the first lost.
