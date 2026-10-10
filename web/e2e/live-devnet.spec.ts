@@ -16,6 +16,7 @@ async function mockDevnet(page: Page, opts: { slots: number; skippedEvery?: numb
   let level = 'processed';
   const skipped = opts.skippedEvery ?? Infinity;
   let slotCalls = 0;
+  const sent: unknown[] = [];
 
   await page.route(
     (url) => url.hostname === 'api.devnet.solana.com',
@@ -48,6 +49,15 @@ async function mockDevnet(page: Page, opts: { slots: number; skippedEvery?: numb
           return { value: [{ slot: 508_100_002, confirmationStatus: level, err: null }] };
         case 'getBlockTime':
           return Math.floor(Date.now() / 1000) - 1;
+        // The two the wallet path needs when it builds and broadcasts a transfer.
+        case 'getLatestBlockhash':
+          return {
+            context: { apiVersion: '4.4.0', slot: 508_100_010 },
+            value: { blockhash: '76S7CNgroYr2q2MegCXsjBcMChQa1TdFWs8BhEtDDnLB', lastValidBlockHeight: 508_100_200 },
+          };
+        case 'sendTransaction':
+          sent.push((body.params as [unknown, unknown?])[0]);
+          return SIG;
         default:
           return null;
       }
@@ -56,7 +66,7 @@ async function mockDevnet(page: Page, opts: { slots: number; skippedEvery?: numb
       await route.fulfill({ json: { jsonrpc: '2.0', id: 1, result } });
     },
   );
-  return { slotCalls: () => slotCalls };
+  return { slotCalls: () => slotCalls, sentBytes: () => sent };
 }
 
 async function openLive(page: Page) {
@@ -212,4 +222,110 @@ test('the scope control only exists where it means something', async ({ page }) 
   // Simulated runs are short and their event mix is already legible, so no scope switch.
   await expect(page.getByTestId('feed-scope-all')).toHaveCount(0);
   await expect(page.getByTestId('feed-count')).toContainText('shown · newest first');
+});
+
+const WALLET_ADDRESS = '9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM';
+
+/**
+ * Stand in for a Wallet Standard browser extension.
+ *
+ * `@wallet-standard/app` discovers wallets by dispatching `wallet-standard:app-ready` and
+ * waiting for each extension to call `register`, exactly as a real extension does, so
+ * listening for that event here tests the real discovery path rather than a shortcut.
+ *
+ * No `window.solana` is faked on purpose. The panel used to gate its Connect button on the
+ * legacy provider while signing through Wallet Standard, so a wallet that speaks only the
+ * standard, which is most of them now, never saw the button at all. Faking only the
+ * standard here is what makes that regression visible: drop the standard path and these
+ * tests lose their Connect button.
+ */
+async function mockWallet(page: Page, opts: { reject?: boolean } = {}) {
+  await page.addInitScript(
+    ({ addr, reject }) => {
+      const wallet = {
+        name: 'Mock wallet',
+        version: '1.0.0',
+        icon: 'data:image/svg+xml,',
+        chains: ['solana:devnet'],
+        accounts: [{ address: addr, label: 'Mock', chains: ['solana:devnet'] }],
+        features: {
+          'solana:signTransaction': {
+            signTransaction: async (tx: Uint8Array, chain: string) => {
+              (window as unknown as Record<string, unknown>).__signChain = chain;
+              if (reject) throw Object.assign(new Error('User rejected the request'), { code: 4001 });
+              // A legacy wire transaction: signature count, 64-byte signature, then the
+              // message. The signature is not real; the client only parses it.
+              const out = new Uint8Array(1 + 64 + tx.length);
+              out[0] = 1;
+              out.set(tx, 65);
+              return { signedTransaction: out, signature: new Uint8Array(64) };
+            },
+          },
+        },
+      };
+      window.addEventListener('wallet-standard:app-ready', ((e: CustomEvent) => {
+        (e.detail as { register(w: unknown): void }).register(wallet);
+      }) as EventListener);
+    },
+    { addr: WALLET_ADDRESS, reject: opts.reject ?? false },
+  );
+}
+
+test('sending a devnet transfer signs with the wallet and traces the result', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
+
+  const rpc = await mockDevnet(page);
+  await mockWallet(page);
+  await openLive(page);
+
+  // No send controls before a wallet is connected.
+  await expect(page.getByTestId('live-send')).toHaveCount(0);
+
+  await page.getByTestId('live-connect').click();
+  await expect(page.getByTestId('live-send')).toBeVisible();
+
+  // Self-transfer by default: the recipient field starts as the connected account.
+  await expect(page.getByTestId('live-recipient')).toHaveValue(WALLET_ADDRESS);
+  await page.getByTestId('live-amount').fill('0.01');
+  await page.getByTestId('live-send-button').click();
+
+  // The wallet is asked for devnet by name, so a wallet on another cluster refuses.
+  await expect(page.getByTestId('live-note')).toContainText('Tracing', { timeout: 20_000 });
+  expect(await page.evaluate(() => (window as unknown as Record<string, unknown>).__signChain)).toBe('solana:devnet');
+
+  // The transaction was actually broadcast, not merely signed.
+  expect(rpc.sentBytes()).toHaveLength(1);
+
+  // And it is being traced from the signature the RPC reported, with no pasting in between.
+  await expect(page.getByTestId('live-signature')).toHaveValue(SIG);
+  await openFeed(page);
+  await expect(page.getByTestId('event-feed')).toContainText('hero tx included in block', { timeout: 20_000 });
+  expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
+});
+
+test('a declined signature is reported as declined, not as a failure to send', async ({ page }) => {
+  await mockDevnet(page);
+  await mockWallet(page, { reject: true });
+  await openLive(page);
+  await page.getByTestId('live-connect').click();
+  await page.getByTestId('live-send-button').click();
+
+  await expect(page.getByTestId('live-note')).toContainText('declined', { timeout: 20_000 });
+  // Nothing was broadcast, and nothing was claimed to have been traced.
+  expect(SIG).toBeTruthy();
+});
+
+test('an amount that is not devnet SOL is refused before the wallet is asked', async ({ page }) => {
+  const rpc = await mockDevnet(page);
+  await mockWallet(page);
+  await openLive(page);
+  await page.getByTestId('live-connect').click();
+  await page.getByTestId('live-amount').fill('0.0000000001');
+  await page.getByTestId('live-send-button').click();
+
+  // Ten decimals cannot exist in lamports, so there is nothing to sign.
+  await expect(page.getByTestId('live-note')).toContainText('not an amount of devnet SOL', { timeout: 20_000 });
+  expect(rpc.sentBytes()).toHaveLength(0);
 });
