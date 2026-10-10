@@ -91,6 +91,20 @@ module map and the explicit list of what is modelled versus simplified.
   measurement the CSS comments had been asking for in prose, and it names descendants whose
   `scrollWidth` exceeds their `clientWidth`, which `.segmented` hides behind `overflow: hidden`.
 
+  Then the second half, which is the part worth remembering. Adding the Devnet button pushed
+  the bar 150px wider on the runner, and it began failing at exactly one width: 1440, where it
+  needed 1444. 1300 fitted. 1500 fitted. That shape is the tell: a bar that fits on both sides
+  of a viewport is not a bar needing a narrower breakpoint, it is a threshold sitting in the
+  wrong band. The field labels and padding were being shed at 1400 and not above it, so 1440
+  was the one viewport wide enough to need that help and too narrow to have received it. The
+  compaction now starts at 1450.
+
+  Measuring it needed the machine that enforces it. macOS and the Linux runner resolve
+  `system-ui` to fonts that disagree by a couple of hundred pixels across this bar: the local
+  measurement said 1229px, the runner said 1444. Every threshold in this file was chosen from a
+  developer machine and none of them were checked against the runner, which is why the margins
+  written into the comments did not survive arithmetic and then did not survive CI.
+
 ## 2026-10-07
 
 - **Google Analytics, off unless configured.** GA4 is installed by `web/src/analytics.ts` from
