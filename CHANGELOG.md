@@ -8,6 +8,34 @@ Companion documents, not duplicated here: [`CLAUDE.md`](CLAUDE.md) for commands 
 invariants that are load-bearing, [`docs/architecture.md`](docs/architecture.md) for the
 module map and the explicit list of what is modelled versus simplified.
 
+## 2026-10-11
+
+- **The live devnet mode is removed from the app.** It is kept in git history at the tag
+  `live-mode-before-removal` and was never a separate deployment: Vercel serves one build, and
+  devnet was a fourth mode inside it. Shipping a mode that polls a public, rate-limited RPC to
+  every visitor of the deployed app was the thing worth removing, so the removal is a hard one
+  rather than a build flag. `web/src/engine/liveClient.ts`, `web/src/engine/devnetSend.ts`,
+  `web/src/components/LivePanel.tsx`, `web/e2e/live-devnet.spec.ts` and the two unit tests for
+  them are deleted, along with the `@solana/kit` dependency they were the only users of.
+
+  `Mode` and `Protocol` lose their `'live'` member, so `?mode=live` in a share link now falls
+  back to the default rather than reaching the RPC. The two live-only trace events,
+  `slot_skipped` and `rpc_conn`, go with it: the Rust engine never emitted either.
+
+  `RunSource` stays as the seam the controller renders through, with one implementation again.
+  The `live` flag on it and the four branches in `controller.ts` that tested it are gone, which
+  is a real simplification: the clock clamp, the lookahead and the backward-scrub re-create now
+  apply to every run without exception.
+
+  The `devnet-shape` scenario stays. It is a measurement of devnet's slot cadence and
+  block-per-slot shape folded into ordinary simulator parameters, with no RPC behind it,
+  and it remains selectable in the scenario picker.
+
+  **Not re-measured:** the top bar loses about 69px, so the 1630px and 1450px compaction
+  thresholds now fire earlier than they need to. Both are left in place and the comments say
+  why: firing early only hides a label sooner, and a threshold moved by a local guess in the
+  other direction overflows the bar. Lower them from a CI-runner measurement.
+
 ## 2026-10-10
 
 - **A live devnet mode, on a click.** A fourth mode watches a real transaction on

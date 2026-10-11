@@ -13,11 +13,10 @@ export function TransactionPanel() {
   // panel stops re-rendering on the 15 Hz clock flush instead of riding it.
   const alpenglowStages = useStore((s) => s.runs.alpenglow?.txStages);
   const towerStages = useStore((s) => s.runs.tower?.txStages);
-  const liveStages = useStore((s) => s.runs.live?.txStages);
   const protocols = protocolsFor(mode);
   const maps: Record<string, TxStageMap> = {};
   for (const p of protocols) {
-    maps[p] = forProtocol(p, { alpenglow: alpenglowStages, tower: towerStages, live: liveStages }) ?? {};
+    maps[p] = forProtocol(p, { alpenglow: alpenglowStages, tower: towerStages }) ?? {};
   }
 
   return (

@@ -8,7 +8,6 @@ import { LessonPicker } from './components/LessonPicker';
 import { ScenarioModal } from './components/ScenarioModal';
 import { Timeline } from './components/Timeline';
 import { Tooltip } from './components/Tooltip';
-import { LivePanel } from './components/LivePanel';
 import { TopBar } from './components/TopBar';
 import { lessonRunner } from './lessons/runner';
 import { protocolsFor, useStore, type LabState } from './store/useStore';
@@ -85,12 +84,7 @@ export function App() {
   }, []);
 
   // The single choke point: any change to mode / scenario / seed rebuilds the workers.
-  // Live mode ignores the scenario, so it keys off a constant instead: including
-  // `scenarioJson` rebuilt the live run twice on boot, once per value the store filled in,
-  // and two pollers meant twice the RPC traffic against a rate-limited endpoint.
-  // configure() seeds whatever scenario it is given, so the live placeholder has to be a
-  // valid (if unused) scenario document. LiveClient ignores it entirely.
-  const scenarioKey = mode === 'live' ? '{"name":"devnet-live"}' : scenarioJson;
+  const scenarioKey = scenarioJson;
   useEffect(() => {
     if (!wasmReady) return;
     void controller.configure(mode, scenarioKey, seed).then(() => {
@@ -140,7 +134,7 @@ export function App() {
       <TopBar />
       <main className={`main ${lessonActive ? 'lesson' : ''}`}>
         {lessonActive && <LessonPanel />}
-        <section className={`canvases ${protocols.length > 1 ? 'compare' : ''} ${mode === 'live' ? 'live' : ''}`} aria-label="Network animation">
+        <section className={`canvases ${protocols.length > 1 ? 'compare' : ''}`} aria-label="Network animation">
           {fatal && (
             <div className="fatal" role="alert">
               <strong>Scenario failed to load</strong>
@@ -153,14 +147,7 @@ export function App() {
               <button onClick={() => useStore.getState().set({ notice: null })}>Dismiss</button>
             </div>
           )}
-          {mode === 'live' ? (
-            // A public RPC reports blocks, commitment levels and skipped slots. It never
-            // reports which validator voted, so there is nothing honest to draw as nodes
-            // and messages here; the trace lives in the timeline and the feed below.
-            <LivePanel />
-          ) : (
-            protocols.map((p) => <CanvasView key={p} protocol={p} />)
-          )}
+          {protocols.map((p) => <CanvasView key={p} protocol={p} />)}
         </section>
         <Inspector />
       </main>

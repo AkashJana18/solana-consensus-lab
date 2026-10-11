@@ -32,4 +32,4 @@ export function fmtInt(n: number | null | undefined): string {
 
 // Kept short on purpose: the timeline prints this beside the first stage marker, where the
 // protocol names already sit, and a longer label collided with it.
-export const PROTOCOL_LABEL = { alpenglow: 'Alpenglow', tower: 'TowerBFT', live: 'Devnet' } as const;
+export const PROTOCOL_LABEL = { alpenglow: 'Alpenglow', tower: 'TowerBFT' } as const;

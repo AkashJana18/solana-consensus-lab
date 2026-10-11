@@ -13,11 +13,10 @@ export function MetricsPanel() {
   // whose identity changes on every flush) drops this panel to its real update rate.
   const alpenglowMetrics = useStore((s) => s.runs.alpenglow?.metrics);
   const towerMetrics = useStore((s) => s.runs.tower?.metrics);
-  const liveMetrics = useStore((s) => s.runs.live?.metrics);
   const protocols = protocolsFor(mode);
   const m: Partial<Record<Protocol, Metrics | null>> = {};
   for (const p of protocols) {
-    m[p] = forProtocol(p, { alpenglow: alpenglowMetrics, tower: towerMetrics, live: liveMetrics }) ?? null;
+    m[p] = forProtocol(p, { alpenglow: alpenglowMetrics, tower: towerMetrics }) ?? null;
   }
   const single = protocols.length === 1 ? m[protocols[0]] : null;
 

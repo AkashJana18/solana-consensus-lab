@@ -5,7 +5,6 @@ import { applyEvents, emptyView, type RunView } from '../store/runView';
 import { protocolsFor, useStore, type Mode } from '../store/useStore';
 import { compileTrigger, type Breakpoint, type HitCallback, type Matcher } from './breakpoint';
 import { SimClient } from './client';
-import { LiveClient, type LiveOptions } from './liveClient';
 import type { EventsBatch, RunSource } from './runSource';
 import { EventBuffer } from './eventBuffer';
 import { isVisibleAt } from '../render/interp';
@@ -38,8 +37,6 @@ export class Controller {
   private lastPoll = 0;
   private generation = 0;
   private stepPending: Protocol | null = null;
-  /** Endpoint and signature for a live run. Read by the LiveClient factory in configure(). */
-  private liveOptions: LiveOptions = {};
 
   private bp: Breakpoint | null = null;
   private bpMatch: Matcher | null = null;
@@ -68,10 +65,9 @@ export class Controller {
     this.displayTime = 0;
     const json = withSeed(scenarioJson, seed);
     const created = protocols.map((p) => {
-      const client: RunSource = p === 'live' ? new LiveClient(this.liveOptions) : new SimClient(p);
-      const run: Run = { protocol: p, client, buffer: new EventBuffer(), view: emptyView(p), scene: this.scenes.get(p) ?? null, resetting: false, dirty: true };
-      client.onEvents((b) => this.onBatch(run, b));
-      client.onError = (m) => this.fail(run, m);
+      const run: Run = { protocol: p, client: new SimClient(p), buffer: new EventBuffer(), view: emptyView(p), scene: this.scenes.get(p) ?? null, resetting: false, dirty: true };
+      run.client.onEvents((b) => this.onBatch(run, b));
+      run.client.onError = (m) => this.fail(run, m);
       return run;
     });
     for (const r of created) this.runs.set(r.protocol, r);
@@ -80,9 +76,6 @@ export class Controller {
       if (gen !== this.generation) return;
       created.forEach((r, i) => this.attachMeta(r, metas[i]));
       this.end = Math.max(...created.map((r) => r.client.end));
-      // A live run has nothing to step through, it has something to watch, but it does not
-      // start watching until the panel's Start button says so: see watchLive(). So `playing`
-      // stays false here, and the clock advances from the first observation instead.
       useStore.getState().set({ end: this.end, playing: false });
       this.requestLookahead();
       this.poll(true);
@@ -91,42 +84,6 @@ export class Controller {
       useStore.getState().set({ fatal: err instanceof Error ? err.message : String(err) });
     }
     if (gen === this.generation) for (const l of this.configuredListeners) l(mode, scenarioJson, seed);
-  }
-
-  /** True once someone has asked this live run to poll, false again after stopLive(). */
-  get liveRunning(): boolean {
-    const run = this.runs.get('live');
-    return !!run && run.client.live === true && (run.client as LiveClient).started;
-  }
-
-  /**
-   * Start watching a signature on devnet. This is the consent point: before it, a live run
-   * makes no network request at all, so a shared `?mode=live` link cannot spend a third
-   * party's rate limit on behalf of a visitor who clicked nothing.
-   *
-   * Returns false when the live mode is not the one currently configured.
-   */
-  watchLive(signature: string | null, endpoint?: string): boolean {
-    const run = this.runs.get('live');
-    if (!run || !run.client.live) return false;
-    this.liveOptions = { ...this.liveOptions, signature, endpoint: endpoint ?? this.liveOptions.endpoint };
-    (run.client as LiveClient).watch(signature, endpoint);
-    (run.client as LiveClient).start();
-    // Resume rather than pause. The clock only advances while playing, so pausing here would
-    // leave the new signature's events buffered and unrevealed until someone pressed play.
-    useStore.getState().set({ playing: true });
-    return true;
-  }
-
-  /**
-   * Stop polling and hold the recording. The buffer is kept so Back still replays what was
-   * observed; a live source cannot re-observe the past, so this is "stop asking", not "reset".
-   */
-  stopLive(): void {
-    const run = this.runs.get('live');
-    if (!run || !run.client.live) return;
-    (run.client as LiveClient).stop();
-    useStore.getState().set({ playing: false });
   }
 
   /** Called every time `configure()` finishes (successfully or with a fatal error) for the latest request. */
@@ -212,12 +169,6 @@ export class Controller {
     run.buffer.append(b.events);
     run.view = { ...run.view, workerNow: b.now };
     run.dirty = true;
-    // A live run declares no horizon, so the timeline's right edge has to follow it. Reading
-    // it from the source rather than from configure() is what lets Back replay the recording.
-    if (run.client.live && b.now > this.end) {
-      this.end = b.now;
-      useStore.getState().set({ end: this.end });
-    }
     if (this.stepPending === run.protocol) {
       this.stepPending = null;
       this.displayTime = Math.max(this.displayTime, b.now);
@@ -270,9 +221,6 @@ export class Controller {
     const t = Math.max(0, Math.min(this.end || tMicros, tMicros));
     if (t < this.displayTime) {
       for (const run of this.runs.values()) {
-        // The past cannot be re-observed. A live run keeps its buffer, so Back inside a live
-        // trace replays what was already recorded rather than refetching anything.
-        if (run.client.live) continue;
         run.buffer.clear();
         run.scene?.particles.clear();
         const meta = run.view.meta;
@@ -298,17 +246,12 @@ export class Controller {
     if (state.playing && this.runs.size) {
       let target = this.displayTime + dt * 1000 * state.speed;
       // Never outrun the workers: stall the clock instead of skipping events.
-      // Never outrun the workers: stall the clock instead of skipping events. A live run is
-      // excluded: it has no materialised future, so its `now` would pin the clock forever.
-      for (const r of this.runs.values()) if (!r.client.live && !r.client.done && !r.resetting) target = Math.min(target, r.client.now);
+      for (const r of this.runs.values()) if (!r.client.done && !r.resetting) target = Math.min(target, r.client.now);
       target = Math.min(target, this.end);
       target = this.applyBreakpoint(target);
       this.displayTime = Math.max(this.displayTime, target);
-      // Stop at the declared horizon, which is how a simulation ends. A live run has no
-      // declared horizon: its `end` is the newest observation and grows, so this check fired
-      // on the very first frame (0 >= 0) and left live mode paused and looking broken.
-      const anyLive = [...this.runs.values()].some((r) => r.client.live);
-      if (!anyLive && this.displayTime >= this.end) state.set({ playing: false });
+      // Stop at the declared horizon, which is how a simulation ends.
+      if (this.displayTime >= this.end) state.set({ playing: false });
     }
 
     this.requestLookahead();
@@ -348,7 +291,7 @@ export class Controller {
     const speed = useStore.getState().speed;
     const lookahead = BASE_LOOKAHEAD_US * Math.max(1, speed);
     for (const r of this.runs.values()) {
-      if (r.client.live || r.resetting || r.client.done) continue;
+      if (r.resetting || r.client.done) continue;
       if (r.client.now < this.displayTime + lookahead) r.client.advance(this.displayTime + lookahead);
     }
   }

@@ -168,25 +168,6 @@ button.primary:hover { filter: brightness(1.1); }
    (see the 1630px note below), so the growth is absorbed instead of scrolling the document. */
 .repo-count { font-size: 12px; font-variant-numeric: tabular-nums; }
 
-/* ---------- live devnet ---------- */
-/* Takes the place of the node canvas in live mode. There is nothing to draw as nodes and
-   messages: a public RPC never says which validator voted. */
-.canvases.live { grid-template-columns: 1fr; }
-.live-panel { padding: 16px 18px; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
-.live-panel h2 { margin: 0; font-size: 14px; color: var(--ink); }
-.live-panel .small { max-width: 78ch; }
-.live-panel code { font-family: var(--mono); font-size: 12px; color: var(--ink-2); }
-.live-inputs { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.live-sig { width: min(560px, 60ch); font-family: var(--mono); font-size: 12px; }
-.live-note { margin: 0; font-size: 12px; color: var(--ink-2); background: var(--surface-2);
-             border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 10px; }
-.live-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-              gap: 8px; margin: 4px 0 0; }
-.live-stats > div { background: var(--surface-2); border: 1px solid var(--border);
-                    border-radius: var(--radius); padding: 6px 10px; }
-.live-stats dt { font-size: 11px; color: var(--muted); }
-.live-stats dd { margin: 2px 0 0; font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-
 /* ---------- inspector ---------- */
 /* min-width: 0 so the fixed track can shrink below the tab strip's min-content width;
    the strip scrolls inside the panel instead of pushing the whole document sideways. */
@@ -296,11 +277,6 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 .type-node_online .chip-dot { background: var(--good); }
 .type-partition_start .chip-dot, .type-partition_end .chip-dot { background: var(--violet); }
 .type-tx_stage .chip-dot { background: var(--c-hero); box-shadow: 0 0 6px var(--c-hero); }
-/* Live devnet feed: observed events get their own hue so a reader can never mistake
-   something the RPC reported for something the model predicted. */
-.type-slot_skipped .chip-dot { background: var(--warn); }
-.type-rpc_conn .chip-dot { background: var(--muted); }
-.feed-row.type-slot_skipped, .feed-row.type-rpc_conn { color: var(--ink-2); }
 .type-slot_start .chip-dot { background: var(--surface-3); border: 1px solid var(--border-strong); }
 .type-block_produced .chip-dot { background: var(--c-shred); }
 .type-log .chip-dot { background: var(--muted); }
@@ -345,6 +321,11 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
    (.repo-link) added 73px of fixed width to the right edge, then 1520 when the Linux CI
    renderer turned out to lay the same bar out about 48px wider than macOS does, then 1630
    when the Devnet mode button added 69px more to the segmented control.
+   Devnet mode is gone from the app, so that last 69px is gone too and 1630 now sheds the
+   labels roughly 69px earlier than it needs to. That is left in place on purpose: a threshold
+   that fires too early only hides a label a little sooner, while one moved by a guess in the
+   other direction overflows the bar. Re-measure with scripts/measure-topbar.ts on the CI
+   runner and lower it from that number, never from a laptop.
    1630 clears the runner's estimated 1601 with room. Every one of these numbers is a local
    measurement plus that renderer's delta, so re-measure with scripts/measure-topbar.ts on a
    machine that is not the one you are reading this on.
@@ -362,7 +343,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
    1500px fitted, because the rule below only switched on at 1400. A band that overflows in
    the middle and not at either end is a threshold in the wrong place, and no amount of
    local measurement finds it, because macOS and the CI runner resolve `system-ui` to fonts
-   that disagree by a couple of hundred pixels across this bar. */
+   that disagree by a couple of hundred pixels across this bar.
+   Devnet mode is gone, so the bar no longer needs that 69px and 1450 is now ~69px later than
+   it needs to be. Left as is, for the same reason as the 1630px rule: early is safe,
+   guessed-and-wrong overflows. Lower it from a runner measurement. */
 @media (max-width: 1450px) {
   .topbar { gap: 8px; }
   .field > span { display: none; }
@@ -379,10 +363,10 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
   .topbar { gap: 6px; }
   .segmented button { padding: 5px 6px; }
   .readout-slot { display: none; }
-  /* The star count rides on the 1299px rule at the bottom of this file: with the count
-     showing, this band needs 1142px before the Devnet button was added and more after, so
-     carrying it down to here would eat the whole margin that rule has. The mark stays at
-      every width -- the link to the source is the point, the number is only the news. */
+/* The star count rides on the 1299px rule at the bottom of this file: with the count
+     showing, this band needs 1142px, so carrying it down to here would eat the whole margin
+     that rule has. The mark stays at every width -- the link to the source is the point, the
+     number is only the news. */
   .repo-stars { display: none; }
 }
 /* Narrow: stack instead of clipping. The app used to carry min-width: 1024px while
