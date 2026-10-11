@@ -43,6 +43,8 @@ export interface LabState {
   selectedNode: number | null;
   tab: Tab;
   customOpen: boolean;
+  /** Whether the component tour is showing. Opt-in only; nothing else ever sets it true. */
+  tourOpen: boolean;
   wasmReady: boolean;
   fatal: string | null;
   /** Non-fatal message shown above the canvas (e.g. a share link that could not be decoded). */
@@ -73,6 +75,7 @@ export const useStore = create<LabState>((set) => ({
   selectedNode: 0,
   tab: 'transaction',
   customOpen: false,
+  tourOpen: false,
   wasmReady: false,
   fatal: null,
   notice: null,

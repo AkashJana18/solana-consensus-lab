@@ -3,6 +3,7 @@ import { controller } from './engine/controller';
 import { ensureWasm, listScenarios, loadScenario, validate } from './engine/wasmMain';
 import { CanvasView } from './render/CanvasView';
 import { Inspector } from './components/Inspector';
+import { ComponentTour } from './components/ComponentTour';
 import { LessonPanel } from './components/LessonPanel';
 import { LessonPicker } from './components/LessonPicker';
 import { ScenarioModal } from './components/ScenarioModal';
@@ -152,6 +153,7 @@ export function App() {
         <Inspector />
       </main>
       <Timeline />
+      <ComponentTour />
       <Tooltip />
       {customOpen && <ScenarioModal />}
       {lessonsOpen && <LessonPicker />}

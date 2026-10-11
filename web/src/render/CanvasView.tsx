@@ -106,9 +106,9 @@ export function CanvasView({ protocol }: { protocol: Protocol }) {
   const meta = run?.meta;
   const leader = run?.leader;
   return (
-    <div className="canvas-wrap">
+    <div className="canvas-wrap" data-tour="canvas">
       <div className="canvas-host" ref={host} />
-      <header className="canvas-caption">
+      <header className="canvas-caption" data-tour="caption">
         <span className={`proto-tag proto-${protocol}`}>{PROTOCOL_LABEL[protocol]}</span>
         {meta && (
           <span className="muted">
@@ -123,7 +123,7 @@ export function CanvasView({ protocol }: { protocol: Protocol }) {
         )}
         {run?.error && <span className="error-chip">{run.error}</span>}
       </header>
-      <ul className="legend" aria-label="Particle legend">
+      <ul className="legend" aria-label="Particle legend" data-tour="legend">
         {LEGEND.map((l) => (
           <li key={l.label}>
             <i style={{ background: l.color, boxShadow: l.glow ? `0 0 6px ${l.color}` : 'none' }} />

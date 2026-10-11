@@ -29,6 +29,11 @@
   --violet: #9085e9;
 
   --accent: #3987e5;
+  /* Solana green, used only by the component tour's ring. It is chrome rather than a data
+     channel, so it does not collide with the categorical palette above. Measured: 12.1:1
+     on --surface and 10.0:1 on --surface-3, well past the 3:1 a UI boundary needs, and 2.3x
+     the luminance of --c-vote so a green ring is not mistaken for green vote particles. */
+  --tour: #14f195;
   --radius: 8px;
   --font: system-ui, -apple-system, 'Segoe UI', sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -413,4 +418,66 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
    Then update this threshold, the comment above and e2e/responsive.spec.ts together. */
 @media (max-width: 1299px) {
   .brand span:not(.brand-mark) { display: none; }
+}
+
+/* ---------- component tour ----------
+   Ring-only, deliberately. Zugzwang's tutorial dims the page and cuts a hole in it, which
+   works when the thing being explained is a form. Here the thing being explained is a
+   network canvas and a set of charts whose colours ARE the explanation, so a dim would hide
+   the evidence the copy points at. No backdrop, no focus trap: the highlighted component
+   stays readable and clickable while it is ringed.
+
+   The tour button lives inside its own .transport-tour wrapper rather than as a sibling of
+   the Lessons button, so it sits in a 6px gap instead of the bar's 14px one. It is icon-only
+   at every width and as tight as a 24px minimum target allows. See the note by the button's
+   own display rule for why it is not allowed to decide a threshold of its own. */
+.transport-tour { display: flex; align-items: center; }
+.tour-btn { padding: 5px 6px; min-width: 26px; }
+.tour-btn[aria-pressed='true'] { border-color: var(--tour); color: var(--tour); }
+/* Fixed and pointer-events: none, so the ring never intercepts a click meant for the
+   control underneath it. The tour explains a control, so someone should be able to use that
+   control while it is being described. */
+.tour-ring { position: fixed; z-index: 40; pointer-events: none; border: 2px solid var(--tour); border-radius: 6px; box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.22); transition: top 0.18s ease, left 0.18s ease, width 0.18s ease, height 0.18s ease; }
+/* A soft breathing halo, not a flash: it marks the ring as live without pulling attention
+   off the text. Suppressed under reduced-motion. */
+.tour-ring[data-pulse='true'] { animation: tour-breathe 2.4s ease-in-out infinite; }
+@keyframes tour-breathe {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.22); }
+  50% { box-shadow: 0 0 0 8px rgba(20, 241, 149, 0.08); }
+}
+.tour-card { position: fixed; z-index: 41; width: min(320px, calc(100vw - 32px)); background: var(--surface-2); border: 1px solid var(--tour); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6); }
+.tour-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+/* The heading is the name of the control being explained, not the region it lives in, so it
+   needs to sit out on its own rather than share a muted style with the step counter. */
+.tour-label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--tour); }
+.tour-count { font-size: 11px; font-variant-numeric: tabular-nums; }
+.tour-text { margin: 0; font-size: 12px; line-height: 1.5; color: var(--ink-2); }
+.tour-missing { margin: 0; font-size: 11px; font-style: italic; }
+.tour-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.tour-nav { display: flex; gap: 6px; }
+/* The caret is a rotated square with two borders, so the corner facing the target reads as
+   an arrow without a glyph or an image. */
+.tour-caret { position: absolute; width: 9px; height: 9px; background: var(--surface-2); border: 1px solid var(--tour); transform: translateX(-50%) rotate(45deg); }
+.tour-card[data-side='below'] .tour-caret { border-right: 0; border-bottom: 0; }
+.tour-card[data-side='above'] .tour-caret { border-left: 0; border-top: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .tour-ring { transition: none; }
+}
+
+/* The tour button costs 34px of bar width here, measured with scripts/measure-topbar.ts
+   (1229px -> 1263px with the wordmark forced on), and that number is a macOS number. The
+   rules above say twice that a threshold taken from a local measurement is a guess about
+   the runner, which lays this bar out wider, so this one is NOT a new measured threshold.
+
+   It is the 1299px wordmark boundary instead, for a reason that does not depend on either
+   machine: the button disappears exactly when the wordmark does. At 1299px and below the
+   bar is therefore strictly narrower than the configuration CI already passes, because a
+   hidden button costs nothing and the wordmark it replaces was costing about 140px. Above
+   1299px the button is present and adds its ~34px, and that is the one configuration no
+   run has verified; e2e/responsive.spec.ts probes 1300 and 1299 either side of it so the
+   runner is what decides, per the method in the note by the 1450px rule.
+
+   If the runner disagrees, move this number from the runner's output, not from a laptop. */
+@media (max-width: 1299px) {
+  .tour-btn { display: none; }
 }

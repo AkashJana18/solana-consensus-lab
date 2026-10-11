@@ -164,6 +164,7 @@ export function TopBar() {
   const playing = useStore((s) => s.playing);
   const speed = useStore((s) => s.speed);
   const lesson = useStore((s) => s.lesson);
+  const tourOpen = useStore((s) => s.tourOpen);
   const set = useStore((s) => s.set);
 
   const [seedText, setSeedText] = useState(String(seed));
@@ -229,7 +230,7 @@ export function TopBar() {
         </select>
       </label>
 
-      <div className="segmented" role="radiogroup" aria-label="Protocol mode">
+      <div className="segmented" role="radiogroup" aria-label="Protocol mode" data-tour="mode">
         {MODES.map((m) => (
           <button
             key={m.id}
@@ -245,7 +246,7 @@ export function TopBar() {
         ))}
       </div>
 
-      <label className="field" data-tip="Seed">
+      <label className="field" data-tip="Seed" data-tour="seed">
         <span>Seed</span>
         <input
           className="seed"
@@ -264,6 +265,22 @@ export function TopBar() {
         <span aria-hidden>☰</span>
         <span className="lbl"> Lessons</span>
       </button>
+
+      {/* Opens the component tour, which points at each control and explains it. Icon only
+          at every width, and inside .transport rather than beside the Lessons button, so it
+          costs a 6px gap rather than the bar's 14px one. */}
+      <div className="transport-tour">
+        <button
+          className="tour-btn"
+          onClick={() => set({ tourOpen: !tourOpen })}
+          data-tip="Show me what each control does"
+          data-testid="tour-toggle"
+          aria-label="Component tour"
+          aria-pressed={tourOpen}
+        >
+          <span aria-hidden>?</span>
+        </button>
+      </div>
 
       <div className="transport">
         <div className="share-anchor">
