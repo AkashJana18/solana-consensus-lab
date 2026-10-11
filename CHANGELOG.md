@@ -27,6 +27,13 @@ module map and the explicit list of what is modelled versus simplified.
   is a real simplification: the clock clamp, the lookahead and the backward-scrub re-create now
   apply to every run without exception.
 
+  The `observed-vs-modeled` lesson goes too. Its premise was this comparison: the
+  left-hand column was the model and the right-hand column was what a public RPC reports.
+  With the live mode gone there is no way for a reader to see the right-hand column, so
+  the lesson would have asserted its most important claim with nothing they could check it
+  against. It is recoverable from `live-mode-before-removal`, and `web/src/lessons/index.ts`
+  plus `web/test/lessons.test.ts` are the only two places to touch to bring it back.
+
   The `devnet-shape` scenario stays. It is a measurement of devnet's slot cadence and
   block-per-slot shape folded into ordinary simulator parameters, with no RPC behind it,
   and it remains selectable in the scenario picker.

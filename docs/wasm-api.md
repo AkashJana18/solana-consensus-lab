@@ -18,7 +18,9 @@ by design (SIMD-0326), so notarization votes, certificates, Pool events, Votor
 flags and Rotor relay choice are not visible to any outside observer. A public
 RPC reports a block, a skipped slot and a commitment level; it cannot report a
 vote or a certificate, and a live trace that showed them would have been
-faking them.
+faking them. The `devnet-shape` scenario is a measurement of devnet's *shape*
+(slot cadence, block-per-slot) rather than a replica of it, and it stays: it is
+a simulated scenario like any other, with no RPC behind it.
 
 ## `Sim` (wasm-bindgen, package `sim-wasm`, imported from `web/src/wasm/pkg`)
 
