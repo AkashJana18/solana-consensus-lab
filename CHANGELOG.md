@@ -34,9 +34,15 @@ module map and the explicit list of what is modelled versus simplified.
   against. It is recoverable from `live-mode-before-removal`, and `web/src/lessons/index.ts`
   plus `web/test/lessons.test.ts` are the only two places to touch to bring it back.
 
-  The `devnet-shape` scenario stays. It is a measurement of devnet's slot cadence and
-  block-per-slot shape folded into ordinary simulator parameters, with no RPC behind it,
-  and it remains selectable in the scenario picker.
+  The `devnet-shape` scenario goes too, for the same reason: its only job was to sit beside a
+  live devnet trace so a reader could compare the model against what a public RPC reports, and
+  with the live mode gone there is nothing to compare against. It is recoverable from
+  `live-mode-before-removal` alongside the rest of that mode, and `crates/sim-core/src/scenario.rs`
+  plus the one Rust test in `protocol/alpenglow/mod.rs` are the only places to touch to bring it
+  back. The `@wallet-standard/app` dependency the live mode needed went at the same time: it was
+  still declared in `web/package.json` after the mode was deleted, imported by nothing, and
+  shipping a wallet-standard dependency in a simulator that never signs anything is exactly the
+  wrong signal to give a scanner.
 
   **Not re-measured:** the top bar loses about 69px, so the 1630px and 1450px compaction
   thresholds now fire earlier than they need to. Both are left in place and the comments say

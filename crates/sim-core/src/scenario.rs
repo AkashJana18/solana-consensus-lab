@@ -14,7 +14,10 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("leader-down", include_str!("../../../scenarios/leader-down.json")),
     ("partition-heal", include_str!("../../../scenarios/partition-heal.json")),
     ("twenty-twenty", include_str!("../../../scenarios/twenty-twenty.json")),
-    ("devnet-shape", include_str!("../../../scenarios/devnet-shape.json")),
+    // `devnet-shape` was removed from the app on 2026-10-11 and is recoverable from the tag
+    // `live-mode-before-removal`, which still carries the scenario file. Its purpose was to
+    // model devnet's measured slot cadence beside a live trace, and with the live mode gone
+    // there was nothing left to compare it against. See the changelog.
 ];
 
 pub fn builtin(name: &str) -> Option<&'static str> {
