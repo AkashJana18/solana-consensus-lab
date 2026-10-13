@@ -1,18 +1,22 @@
-# Solana Consensus Lab
+![Solana Consensus Lab banner](web/public/scl-banner.png)
 
-<p align="center"><img src="web/public/scl-logo.svg" alt="Solana Consensus Lab mark" width="240"></p>
+<h1 align="center">Solana Consensus Lab</h1>
+
+<p align="center">
+  <a href="https://github.com/AkashJana18/solana-consensus-lab/stargazers"><img alt="stars" src="https://shieldcn.dev/github/AkashJana18/solana-consensus-lab/stars.svg?size=sm&theme=gray&label=%20&padX=6&mode=light"></a>
+  <a href="https://x.com/solconsensuslab"><img alt="follow @solconsensuslab" src="https://shieldcn.dev/x/follow/solconsensuslab.svg?size=sm&theme=gray&label=%20&padX=6&mode=light"></a>
+  <a href="https://github.com/AkashJana18/solana-consensus-lab/actions/workflows/ci.yml"><img alt="CI passing" src="https://shieldcn.dev/github/AkashJana18/solana-consensus-lab/ci.svg?size=sm&theme=gray&padX=6&mode=light"></a>
+  <img alt="Rust 2021" src="https://shieldcn.dev/badge/rust-2021-D34516.svg?logo=rust&size=sm&padX=6&mode=light">
+  <img alt="TypeScript 5.7" src="https://shieldcn.dev/badge/typescript-5.7-3178c6.svg?logo=typescript&size=sm&padX=6&mode=light">
+</p>
 
 Watch a single transaction travel through Solana's consensus side by side, under the protocol Solana uses today and the one it's moving to.
 
 Under Alpenglow that transaction is final in about **150 milliseconds**. Under TowerBFT the same transaction takes about **12.8 seconds**. This tool shows you where those seconds go.
 
-> Not affiliated with or endorsed by the Solana Foundation yet. "Solana" is a trademark of Solana Foundation, used here only to name the protocol being simulated. The mark above is this project's own, vectorised from `SCL-logo.png`.
-
 Built as a free, open-source teaching tool for Solana education programs and for anyone who would rather *see* consensus than read about it.
 
-![Solana Consensus Lab banner](web/public/scl-banner.png)
-
-![happy-path scenario, Alpenglow view](web/e2e/screenshots/happy-path.png)
+<img width="1000" height="563" alt="ConsensusLab-Proof" src="https://github.com/user-attachments/assets/28e79e23-3deb-43b1-8c79-2a2ad471dfec" />
 
 ## What you see
 
@@ -64,4 +68,8 @@ Full list of what is and isn't modelled: [`docs/architecture.md`](docs/architect
 
 Apache-2.0. Contributions welcome. "Solana" is a trademark of Solana Foundation, used only to name the protocol being simulated.
 
-Further reading: [`docs/protocols.md`](docs/protocols.md) both protocols as simulated · [`docs/architecture.md`](docs/architecture.md) module map, test map, honest limits · [`web/README.md`](web/README.md) render loop, adding a lesson, URL scheme · [`docs/wasm-api.md`](docs/wasm-api.md) engine ↔ UI contract
+Further reading:
+- [`docs/protocols.md`](docs/protocols.md) both protocols as simulated
+- [`docs/architecture.md`](docs/architecture.md) module map, test map, honest limits
+- [`web/README.md`](web/README.md) render loop, adding a lesson, URL scheme
+- [`docs/wasm-api.md`](docs/wasm-api.md) engine ↔ UI contract
