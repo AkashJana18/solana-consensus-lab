@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test';
 import { TOUR_STEPS } from '../src/tour/steps';
 
 /**
- * The component tour: open it, walk all fourteen steps, close it.
+ * The component tour: open it, walk all eighteen steps, close it.
  *
  * Nothing here needs a webdriver escape hatch, because the tour is opt-in: it only exists
  * once someone presses the button. That is the point of making it opt-in, and it is why
@@ -65,6 +65,56 @@ test('every step finds its target and rings it', async ({ page }) => {
   expect(errors, `console errors: ${errors.join('\n')}`).toEqual([]);
 });
 
+/**
+ * The ring's box once it has stopped moving.
+ *
+ * A step change commits in two passes: the render that carries the new label, then the
+ * effect that re-measures the target and writes the ring's style. And the ring animates over
+ * 0.18s. So a single boundingBox() can be a frame behind, or mid-flight, and both read as a
+ * ring in the wrong place. Polling until two consecutive reads agree waits for both without
+ * guessing a sleep duration.
+ */
+const settledRing = async (page: Page): Promise<{ x: number; y: number }> => {
+  let prev = '';
+  await expect
+    .poll(
+      async () => {
+        const b = await page.locator('.tour-ring').boundingBox();
+        const cur = `${Math.round(b?.x ?? -1)},${Math.round(b?.y ?? -1)}`;
+        const same = cur === prev;
+        prev = cur;
+        return same;
+      },
+      { timeout: 5000 },
+    )
+    .toBe(true);
+  const b = (await page.locator('.tour-ring').boundingBox())!;
+  return { x: b.x, y: b.y };
+};
+
+test('the ring follows reading order across the window', async ({ page }) => {
+  // Top bar left to right, then the canvas, then the right-hand column, then the timeline.
+  // Asserted on the ring rather than on the array because it is the ring the reader watches
+  // move, and a reordering that only changed the data would be a different bug. The canvas
+  // cell nests the caption and legend inside it, so only the non-nested stops are compared:
+  // the top bar's ten run strictly left to right, and the timeline is ringed last because it
+  // is the bottom row.
+  await open(page);
+  const topBar: number[] = [];
+
+  for (const [i, step] of TOUR_STEPS.entries()) {
+    const ring = await settledRing(page);
+    if (i < 10) topBar.push(ring.x);
+    if (step.id === 'timeline') expect(ring.y, 'the timeline is the bottom row').toBeGreaterThan(700);
+    if (i < TOUR_STEPS.length - 1) await page.getByTestId('tour-next').click();
+  }
+
+  expect(topBar).toHaveLength(10);
+  for (let i = 1; i < topBar.length; i++) {
+    expect(topBar[i], `top bar step ${i} moves right, not back`).toBeGreaterThanOrEqual(topBar[i - 1]);
+  }
+});
+
 test('the ring is Solana green and does not block clicks', async ({ page }) => {
   await open(page);
   await page.getByTestId('tour-next').click(); // on to the scenario select
@@ -121,7 +171,7 @@ test('Escape closes the tour without starting playback', async ({ page }) => {
 test('Back is absent on the first step and Next becomes Done on the last', async ({ page }) => {
   // Done closes the tour, which is the one place the tour writes to the store mid-flow.
   // Collecting console errors here is deliberate: a setState-during-render only fires on
-  // the final step, so a spec that stops at step 14 never sees it.
+  // the final step, so a spec that stops early never sees it.
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
@@ -148,7 +198,7 @@ test('the tour never changes the simulation', async ({ page }) => {
 
   for (let i = 0; i < TOUR_STEPS.length - 1; i++) await page.getByTestId('tour-next').click();
 
-  // Walking all fourteen steps must leave the run exactly where it started. A tour that
+  // Walking all eighteen steps must leave the run exactly where it started. A tour that
   // switched modes or loaded a scenario would be teaching by mutating the thing it
   // describes, which is what the lessons are for.
   expect(await page.getByTestId('readout').textContent()).toBe(readout);

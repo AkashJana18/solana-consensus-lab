@@ -180,6 +180,26 @@ describe('tour steps', () => {
     for (const s of TOUR_STEPS) expect(defined, `${s.id} targets an undefined selector: ${s.target}`).toContain(s.target);
   });
 
+  it('walks the window in reading order, top left to bottom right', () => {
+    // The array order *is* the tour order, so this is the only place the reading order can
+    // be asserted. A geometric check is not available: the canvas target is the whole
+    // .canvas-wrap that contains the caption and the legend, so those three boxes nest and
+    // have no coordinate order to compare against. The sequence below is derived from the
+    // layout in global.css (.app rows 52px / 1fr / 100px, .main columns 1fr / 400px, and a
+    // flex .topbar whose DOM order is its visual order), and reordering it is a deliberate
+    // act rather than something to do by accident while editing the copy.
+    expect(TOUR_STEPS.map((s) => s.id)).toEqual([
+      // top bar, left to right
+      'scenario', 'mode', 'seed', 'lessons', 'share', 'play', 'step-event', 'step-slot', 'speed', 'readout',
+      // the canvas, then its caption above and its legend below
+      'caption', 'canvas', 'legend',
+      // the inspector column, top to bottom
+      'node-picker', 'transaction', 'votor', 'tower',
+      // the timeline, the bottom row of the whole window
+      'timeline',
+    ]);
+  });
+
   it('names the component in the heading, and names a different one each time', () => {
     // The heading used to be the region ("Top bar"), so ten consecutive steps read TOP BAR
     // and the only thing telling two stops apart was the number. It must be the control.

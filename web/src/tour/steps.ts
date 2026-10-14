@@ -29,13 +29,25 @@ export interface TourStep {
   text: string;
 }
 
+/**
+ * The steps in reading order: top bar left to right, then the canvas, then the right-hand
+ * inspector column, then the timeline along the bottom.
+ *
+ * The order is not a matter of taste. It falls out of the layout in global.css:
+ * `.app` is `grid-template-rows: 52px 1fr 100px`, `.main` is
+ * `grid-template-columns: 1fr 400px`, and `.topbar` is a flex row, so within a row the DOM
+ * order *is* the visual order. Within the canvas cell the caption is `position: absolute;
+ * top: 10px` and the legend is `bottom: 10px`, so caption-then-legend is top-to-bottom
+ * around the canvas they annotate.
+ *
+ * It used to start at the protocol mode, jump back left to the scenario, run right along
+ * the transport, then jump back left again for Lessons and Share, list the legend above the
+ * caption that sits above it, and put the timeline in the middle of the list rather than at
+ * the bottom. test/tour.test.ts pins this sequence, because the array order *is* the
+ * reading order and nothing else about it is checkable from the source.
+ */
 export const TOUR_STEPS: readonly TourStep[] = [
-  {
-    id: 'mode',
-    label: 'Protocol mode',
-    target: '[data-tour="mode"]',
-    text: 'Which protocol to run. Alpenglow, TowerBFT, or Compare for the two side by side. Compare is the honest way to compare them: same network, same latencies, same stake, different consensus.',
-  },
+  // ---- top bar, left to right ------------------------------------------------------------
   {
     id: 'scenario',
     label: 'Scenario',
@@ -43,10 +55,28 @@ export const TOUR_STEPS: readonly TourStep[] = [
     text: 'Which network to simulate: the fault pattern, the region layout, and when the transaction lands. Each one has a description underneath.',
   },
   {
+    id: 'mode',
+    label: 'Protocol mode',
+    target: '[data-tour="mode"]',
+    text: 'Which protocol to run. Alpenglow, TowerBFT, or Compare for the two side by side. Compare is the honest way to compare them: same network, same latencies, same stake, different consensus.',
+  },
+  {
     id: 'seed',
     label: 'Seed',
     target: '[data-tour="seed"]',
     text: 'Fixes every random choice in the run: which nodes lead, who relays, how messages interleave. Same scenario plus same seed gives the same run every time. Change it to find out how much of what you just saw was luck.',
+  },
+  {
+    id: 'lessons',
+    label: 'Lessons',
+    target: '[data-testid="lessons-open"]',
+    text: 'Guided lessons. Each one loads a scenario, pauses at the moments that matter, and asks you to predict what happens before running.',
+  },
+  {
+    id: 'share',
+    label: 'Share',
+    target: '[data-testid="share"]',
+    text: 'Copies a link to exactly this moment: scenario, protocol, seed, selected node, and the clock if you are paused. If a lesson is open the link carries the step too, so a student lands where you stopped.',
   },
   {
     id: 'play',
@@ -78,19 +108,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
     target: '[data-testid="readout"]',
     text: 'Where you are in simulated time, and which slot that is. The clock never outruns the engine: if the worker falls behind, playback stalls rather than skipping events.',
   },
-  {
-    id: 'lessons',
-    label: 'Lessons',
-    target: '[data-testid="lessons-open"]',
-    text: 'Guided lessons. Each one loads a scenario, pauses at the moments that matter, and asks you to predict what happens before running.',
-  },
-  {
-    id: 'share',
-    label: 'Share',
-    target: '[data-testid="share"]',
-    text: 'Copies a link to exactly this moment: scenario, protocol, seed, selected node, and the clock if you are paused. If a lesson is open the link carries the step too, so a student lands where you stopped.',
-  },
 
+  // ---- the canvas, then the two things annotating it (caption above, legend below) -------
+  {
+    id: 'caption',
+    label: 'Canvas readout',
+    target: '[data-tour="caption"]',
+    text: 'The current slot, who is leading it, and which node you have selected. Compare mode runs the same scenario on both sides, so the two captions drift apart once the protocols start to disagree.',
+  },
   {
     id: 'canvas',
     label: 'Network',
@@ -103,19 +128,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
     target: '[data-tour="legend"]',
     text: 'What the moving dots are: shreds, votes, certificates, repair requests, and the hero transaction in white. Colour is the message type.',
   },
-  {
-    id: 'caption',
-    label: 'Canvas readout',
-    target: '[data-tour="caption"]',
-    text: 'The current slot, who is leading it, and which node you have selected. Compare mode runs the same scenario on both sides, so the two captions drift apart once the protocols start to disagree.',
-  },
-  {
-    id: 'timeline',
-    label: 'Timeline',
-    target: '[data-testid="timeline"]',
-    text: 'The whole run at a glance, and the only control you can drag. Each band is a leader window, labelled L4; the tinted overlays are the active faults; the ticks are slots. The two rails underneath mark the hero transaction stages per protocol, which is where you can see the gap open up.',
-  },
 
+  // ---- the inspector column, top to bottom -----------------------------------------------
   {
     id: 'node-picker',
     label: 'Node picker',
@@ -139,5 +153,13 @@ export const TOUR_STEPS: readonly TourStep[] = [
     label: 'Tower',
     target: '[data-testid="tab-tower"]',
     text: 'TowerBFT only. Each row is a vote in the selected validator’s tower, and bar length is the lockout, on a log scale from 2^1 to 2^31. The dashed row is the depth-8 fork-switch check, which needs two thirds of stake. Rooting happens much further down, at depth 32.',
+  },
+
+  // ---- the timeline, the bottom row of the whole window ----------------------------------
+  {
+    id: 'timeline',
+    label: 'Timeline',
+    target: '[data-testid="timeline"]',
+    text: 'The whole run at a glance, and the only control you can drag. Each band is a leader window, labelled L4; the tinted overlays are the active faults; the ticks are slots. The two rails underneath mark the hero transaction stages per protocol, which is where you can see the gap open up.',
   },
 ];
