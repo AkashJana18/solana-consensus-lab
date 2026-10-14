@@ -11,7 +11,7 @@ export const skipCerts: Lesson = {
   mode: 'alpenglow',
   seed: 1,
   speed: 1,
-  intro: `In this scenario the validator that leads slots 4–7 goes **offline at 1.0 s** and stays down until 5.0 s. Because it also holds a lot of stake, it happens to lead the first window too, so its outage starts during slots 0–3.
+  intro: `In this scenario the validator that leads slots 4-7 goes **offline at 1.0 s** and stays down until 5.0 s. Because it also holds a lot of stake, it happens to lead the first window too, so its outage starts during slots 0-3.
 
 Alpenglow has no global clock to tell everyone "the slot is over". Instead each validator runs a local **timeout** per slot, set when the window's parent became ready: Δtimeout (900 ms) plus one Δblock (400 ms) for each later slot in the window.
 
@@ -23,7 +23,7 @@ Press **Start**.`,
       protocol: 'alpenglow',
       trigger: { type: 'node_offline' },
       selectNode: 'hit',
-      body: (hit) => `Node **${hit && hit.type === 'node_offline' ? hit.node : '?'}** is now offline (dimmed). It is the leader of the current window and of slots 4–7. No more shreds will come from it, so no validator can complete or vote Notarize on its next blocks.
+      body: (hit) => `Node **${hit && hit.type === 'node_offline' ? hit.node : '?'}** is now offline (dimmed). It is the leader of the current window and of slots 4-7. No more shreds will come from it, so no validator can complete or vote Notarize on its next blocks.
 
 Nothing visible happens for a while: the other validators are simply **waiting**, with their timeouts ticking.`,
     },
@@ -58,7 +58,7 @@ Notice how *fast* this was once the timeouts fired: one round of votes, one cert
       tab: 'votor',
       body: (hit) => `The Pool now reports **ParentReady** for slot **${hit && hit.type === 'pool_event' ? hit.slot : '?'}**: the last notarized block plus Skip certificates for every slot in between means the next leader knows exactly which parent to build on.
 
-The next window's leader is the *same* offline validator, so its slots 4–7 will be skipped the same way: timeouts, Skip votes, Skip certificates. The window after that has a live leader.`,
+The next window's leader is the *same* offline validator, so its slots 4-7 will be skipped the same way: timeouts, Skip votes, Skip certificates. The window after that has a live leader.`,
     },
     {
       id: 'included',

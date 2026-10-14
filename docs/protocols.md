@@ -63,7 +63,7 @@ the heaviest child (ties → lower slot) among replayed blocks.
 
 **Clock.** No PoH. A leader starts its window when its Pool reports
 `ParentReady(s, parent)`; slot *i* of the window begins Δblock after slot
-*i − 1*. Validators set local **timeouts** for the window's slots at
+*i - 1*. Validators set local **timeouts** for the window's slots at
 `ParentReady + Δtimeout + i·Δblock` (`timeout_ms`; default 900 ms because a
 block is voted on only after all its slices have arrived).
 
@@ -73,11 +73,11 @@ chance of relaying is proportional to its stake) and the relay broadcasts it to
 all. Any `data_shreds` of them reconstruct the slice. **Blokstor** reports the
 first complete block per slot.
 
-**Votor per-slot flags** (white paper v1.1, Algorithms 1–2):
+**Votor per-slot flags** (white paper v1.1, Algorithms 1-2):
 
 | Event | Handler |
 |---|---|
-| `Block(b)` complete & replayed | `TryNotar(b)`: if not `Voted` and the parent is acceptable (first slot of window: `ParentReady(parent)`; later slots: we voted Notarize for the parent in slot − 1) → **Notarize(b)**, set `Voted`, `VotedNotar(b)`. Otherwise buffer b. |
+| `Block(b)` complete & replayed | `TryNotar(b)`: if not `Voted` and the parent is acceptable (first slot of window: `ParentReady(parent)`; later slots: we voted Notarize for the parent in slot - 1) → **Notarize(b)**, set `Voted`, `VotedNotar(b)`. Otherwise buffer b. |
 | `ParentReady(s, p)` | Record p; for the first slot of a window set the timeouts (once); retry buffered blocks. |
 | `Timeout(s)` | If not `Voted`: `TrySkipWindow(s)`, **Skip** every not-yet-voted slot to the end of the window; set `BadWindow`. |
 | `SafeToNotar(s, b)` | `TrySkipWindow(s)`; if not `ItsOver`: set `BadWindow`, **NotarFallback(b)**. |
