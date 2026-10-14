@@ -99,6 +99,10 @@ sup { font-size: 9px; }
 .md li { margin: 3px 0; }
 .md strong { color: var(--ink); }
 .md a { color: var(--accent); }
+.md table { border-collapse: collapse; width: 100%; margin: 0 0 10px; font-size: 12px; }
+.md th, .md td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.md th { color: var(--ink); font-weight: 600; }
+.md td { color: var(--ink-2); }
 .lesson-question { border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0 12px; background: var(--surface); }
 .lesson-prompt { margin: 0 0 8px; font-weight: 600; }
 .lesson-choices { display: grid; gap: 6px; }

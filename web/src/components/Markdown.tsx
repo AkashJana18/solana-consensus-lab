@@ -40,6 +40,27 @@ export function Markdown({ source, className }: { source: string; className?: st
               ))}
             </ul>
           );
+        if (b.kind === 'table')
+          return (
+            <table key={i}>
+              <thead>
+                <tr>
+                  {b.head.map((cell, j) => (
+                    <th key={j} scope="col"><Inlines inlines={cell} /></th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {b.rows.map((row, j) => (
+                  <tr key={j}>
+                    {row.map((cell, k) => (
+                      <td key={k}><Inlines inlines={cell} /></td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          );
         return (
           <p key={i}>
             <Inlines inlines={b.inlines} />

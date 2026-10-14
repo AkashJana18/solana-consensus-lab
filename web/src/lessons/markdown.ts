@@ -3,9 +3,27 @@
 
 export type Inline = { kind: 'text' | 'bold' | 'code'; text: string } | { kind: 'link'; text: string; href: string };
 
-export type Block = { kind: 'p'; inlines: Inline[] } | { kind: 'h'; inlines: Inline[] } | { kind: 'ul'; items: Inline[][] };
+export type Block =
+  | { kind: 'p'; inlines: Inline[] }
+  | { kind: 'h'; inlines: Inline[] }
+  | { kind: 'ul'; items: Inline[][] }
+  | { kind: 'table'; head: Inline[][]; rows: Inline[][][] };
 
 const INLINE = /(\*\*[^*]+\*\*|`[^`]+`|\[[^\]]+\]\([^)\s]+\))/g;
+
+/** A GFM alignment cell: `---`, `:--`, `--:` or `:-:`. */
+const DELIMITER_CELL = /^:?-+:?$/;
+
+function splitRow(line: string): string[] {
+  return line.replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
+}
+
+/** True when every cell is an alignment marker, which is what makes row 2 a header rule. */
+function isDelimiterRow(line: string): boolean {
+  if (!line.startsWith('|')) return false;
+  const cells = splitRow(line);
+  return cells.length > 0 && cells.every((c) => DELIMITER_CELL.test(c));
+}
 
 export function parseInline(s: string): Inline[] {
   const out: Inline[] = [];
@@ -44,11 +62,29 @@ export function parseMarkdown(src: string): Block[] {
     }
   };
 
-  for (const raw of src.split('\n')) {
-    const line = raw.trim();
+  const lines = src.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
     if (line === '') {
       flushPara();
       flushList();
+    } else if (line.startsWith('|')) {
+      flushPara();
+      flushList();
+      // A pipe line with no header rule under it is not a table. Keep it as prose rather
+      // than dropping it, so a stray pipe in a sentence still reaches the page.
+      if (!isDelimiterRow(lines[i + 1]?.trim() ?? '')) {
+        para.push(line);
+        continue;
+      }
+      const head = splitRow(line);
+      i++; // step over the delimiter row; the loop below indexes from there
+      const rows: Inline[][][] = [];
+      while (i + 1 < lines.length && lines[i + 1].trim().startsWith('|')) {
+        i++;
+        rows.push(splitRow(lines[i].trim()).map(parseInline));
+      }
+      blocks.push({ kind: 'table', head: head.map(parseInline), rows });
     } else if (line.startsWith('## ')) {
       flushPara();
       flushList();
