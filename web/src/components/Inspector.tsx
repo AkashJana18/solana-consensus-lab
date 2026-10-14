@@ -49,7 +49,11 @@ export function Inspector() {
           </button>
         ))}
       </nav>
-      <div className="panel" role="tabpanel">
+      {/* data-tour names the panel currently on screen rather than the panel it always is,
+          so the tour can ring the content it is describing instead of the tab button that
+          selects it. It switches to the tab it needs before measuring, which is why this is
+          the live tab and not a fixed string. */}
+      <div className="panel" role="tabpanel" data-tour={`panel-${active}`}>
         {active === 'transaction' && <TransactionPanel />}
         {active === 'votor' && <VotorPanel />}
         {active === 'tower' && <TowerPanel />}

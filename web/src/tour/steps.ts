@@ -1,4 +1,5 @@
-// The component tour's content: what gets highlighted, and what it does.
+// The component tour's content: what gets highlighted, what it does, and what the tour has
+// to set up before the highlight can mean anything.
 //
 // Each step is ONE control plus one explanation. That is a hard rule, not a style choice:
 // an earlier version of this file let a step target several selectors at once, and the one
@@ -8,10 +9,8 @@
 // again. A selector may still match more than one element (the canvas exists once per
 // protocol in Compare mode) and those are unioned, because that is one logical thing shown
 // twice rather than two different things.
-//
-// Nothing here changes the application: the tour points at a control and says what it does,
-// and Next only ever moves the highlight. That restraint is why the list can be reviewed
-// without running the app.
+
+import { protocolsFor, type Mode, type Tab } from '../store/useStore';
 
 export interface TourStep {
   id: string;
@@ -27,6 +26,24 @@ export interface TourStep {
   /** Exactly one CSS selector. See the note above on why this is not an array. */
   target: string;
   text: string;
+  /**
+   * The inspector tab this step needs open, which the tour switches to on arrival.
+   *
+   * The panels are only mounted when their tab is active (Inspector.tsx renders one panel
+   * per tab), so without this the `transaction`, `votor` and `tower` steps pointed at
+   * content that usually was not in the document, `unionBox` returned null, and the card
+   * fell back to floating in the middle of the screen pointing at nothing. Setting the tab
+   * is the one thing the tour does to the app, and it is reverted when the tour closes.
+   */
+  tab?: Tab;
+  /**
+   * The protocol this step needs in the current mode, mirroring Inspector's own `needs`.
+   *
+   * A step whose protocol is not running cannot have its tab opened at all, and rather
+   * than showing an empty card the step is skipped. Compare mode runs both protocols and
+   * therefore shows every step; each single-protocol mode drops the other's panel step.
+   */
+  needs?: 'alpenglow' | 'tower';
 }
 
 /**
@@ -139,20 +156,40 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'transaction',
     label: 'Transaction',
-    target: '[data-testid="tx-stepper"]',
+    target: '[data-tour="panel-transaction"]',
+    tab: 'transaction',
     text: 'The eight stages the hero transaction passed through, first time any node reached each. One column per protocol in Compare mode. The latency table underneath is measured from inclusion, because that is what isolates consensus from when the transaction landed in the block.',
   },
   {
     id: 'votor',
     label: 'Votor',
-    target: '[data-testid="tab-votor"]',
-    text: 'Alpenglow only, so this tab appears in Alpenglow and Compare mode. It shows which votes the selected validator has pooled per slot: notarize, skip, or both. The dashed lines are the 20 / 40 / 60 / 80 % stake thresholds where a certificate can form. Watching a bar cross 60 % is watching notarization happen.',
+    target: '[data-tour="panel-votor"]',
+    tab: 'votor',
+    needs: 'alpenglow',
+    text: 'Alpenglow only, so this step appears in Alpenglow and Compare mode. It shows which votes the selected validator has pooled per slot: notarize, skip, or both. The dashed lines are the 20 / 40 / 60 / 80 % stake thresholds where a certificate can form. Watching a bar cross 60 % is watching notarization happen.',
   },
   {
     id: 'tower',
     label: 'Tower',
-    target: '[data-testid="tab-tower"]',
-    text: 'TowerBFT only. Each row is a vote in the selected validator’s tower, and bar length is the lockout, on a log scale from 2^1 to 2^31. The dashed row is the depth-8 fork-switch check, which needs two thirds of stake. Rooting happens much further down, at depth 32.',
+    target: '[data-tour="panel-tower"]',
+    tab: 'tower',
+    needs: 'tower',
+    text: 'TowerBFT only, so this step appears in TowerBFT and Compare mode. Each row is a vote in the selected validator’s tower, and bar length is the lockout, on a log scale from 2^1 to 2^31. The dashed row is the depth-8 fork-switch check, which needs two thirds of stake. Rooting happens much further down, at depth 32.',
+  },
+
+  {
+    id: 'events',
+    label: 'Events',
+    target: '[data-tour="panel-events"]',
+    tab: 'events',
+    text: 'Everything the engine emitted, newest first, as a scrolling log: certificates forming, faults firing, a validator going offline. In Compare mode the toggle at the top picks which protocol you are reading. The feed keeps the most recent few hundred events, so a long run loses its early ones.',
+  },
+  {
+    id: 'metrics',
+    label: 'Metrics',
+    target: '[data-tour="panel-metrics"]',
+    tab: 'metrics',
+    text: 'Running totals over every event the engine has produced: messages and bytes, blocks against slots started, and the breakdown by kind. This is the panel for comparing the two protocols in one view. The vote transaction row is the one worth watching: block space spent on votes under TowerBFT, zero under Alpenglow.',
   },
 
   // ---- the timeline, the bottom row of the whole window ----------------------------------
@@ -163,3 +200,17 @@ export const TOUR_STEPS: readonly TourStep[] = [
     text: 'The whole run at a glance, and the only control you can drag. Each band is a leader window, labelled L4; the tinted overlays are the active faults; the ticks are slots. The two rails underneath mark the hero transaction stages per protocol, which is where you can see the gap open up.',
   },
 ];
+
+/**
+ * The steps that can actually be shown, in order.
+ *
+ * The tour never switches protocol mode: doing so rebuilds both workers and restarts the
+ * run at t=0 mid-tour, which would be teaching by destroying the thing being described. So a
+ * panel whose protocol is not running has no tab to open and its step is dropped instead of
+ * shown as an empty card. Compare mode shows all twenty; each single-protocol mode shows
+ * nineteen.
+ */
+export function visibleSteps(mode: Mode): readonly TourStep[] {
+  const protocols = protocolsFor(mode);
+  return TOUR_STEPS.filter((s) => !s.needs || protocols.includes(s.needs));
+}

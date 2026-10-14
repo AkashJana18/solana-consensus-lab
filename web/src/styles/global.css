@@ -464,6 +464,11 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 .tour-caret { position: absolute; width: 9px; height: 9px; background: var(--surface-2); border: 1px solid var(--tour); transform: translateX(-50%) rotate(45deg); }
 .tour-card[data-side='below'] .tour-caret { border-right: 0; border-bottom: 0; }
 .tour-card[data-side='above'] .tour-caret { border-left: 0; border-top: 0; }
+/* Beside a tall target (the inspector panel) the card sits to its left, so the caret moves
+   to the card's right edge and is rotated back the other way: the two borders left after
+   the ones below are dropped must meet at the right-hand point. */
+.tour-card[data-side='left'] .tour-caret { border-bottom: 0; border-right: 0; transform: translateX(50%) rotate(45deg); }
+.tour-card[data-side='right'] .tour-caret { border-left: 0; border-top: 0; transform: translateX(-50%) rotate(45deg); }
 @media (prefers-reduced-motion: reduce) {
   .tour-ring { transition: none; }
 }

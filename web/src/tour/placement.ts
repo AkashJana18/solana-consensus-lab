@@ -19,7 +19,7 @@ export interface Viewport {
   height: number;
 }
 
-export type Side = 'above' | 'below';
+export type Side = 'above' | 'below' | 'left' | 'right';
 
 /** Gap between the target ring and the popover. Matches the ring's own 6px halo. */
 export const GAP = 14;
@@ -55,10 +55,32 @@ export function unionBox(rects: readonly Box[]): Box | null {
   return { left, top, width: right - left, height: bottom - top };
 }
 
-/** Which side of the target has room for a popover of `popoverHeight`. */
+/**
+ * Which side of the target has room for a popover of `popoverHeight`.
+ *
+ * Above and below first, exactly as before, so every control-sized target is unaffected. The
+ * horizontal case exists for one thing: the inspector panel, which is 400px wide and fills
+ * most of the viewport height. Neither above nor below fits it, and pinning the card to
+ * whichever edge it could reach put it squarely on top of the panel it had just opened. A
+ * target taller than the popover with room beside it now goes beside it instead, preferring
+ * whichever side has more space.
+ */
 export function sideFor(target: Box, viewport: Viewport, popoverHeight: number): Side {
   const below = viewport.height - (target.top + target.height);
-  return below >= popoverHeight ? 'below' : 'above';
+  const above = target.top;
+  if (below >= popoverHeight) return 'below';
+  if (above >= popoverHeight) return 'above';
+
+  // Neither vertical side fits, so the target is tall. Beside it is the only way to avoid
+  // covering the thing being described. The inspector sits hard against the right edge, so
+  // in practice this always resolves to 'left' and lands over the canvas.
+  const roomLeft = target.left - GAP - POPOVER_WIDTH;
+  const roomRight = viewport.width - (target.left + target.width) - GAP - POPOVER_WIDTH;
+  if (roomLeft >= MARGIN || roomRight >= MARGIN) return roomLeft >= roomRight ? 'left' : 'right';
+
+  // A viewport too narrow for the popover beside the target either. Falling back to above
+  // keeps the previous behaviour, which clamps the card into view rather than losing it.
+  return 'above';
 }
 
 /**
@@ -73,17 +95,26 @@ export function sideFor(target: Box, viewport: Viewport, popoverHeight: number):
 export function place(target: Box, viewport: Viewport, popoverHeight: number): { top: number; left: number; side: Side } {
   const side = sideFor(target, viewport, popoverHeight);
   const width = Math.min(POPOVER_WIDTH, Math.max(0, viewport.width - MARGIN * 2));
-  const left = clamp(target.left + target.width / 2 - width / 2, MARGIN, viewport.width - MARGIN - width);
-
-  const preferred = side === 'below' ? target.top + target.height + GAP : target.top - GAP - popoverHeight;
+  const maxLeft = viewport.width - MARGIN - width;
   const maxTop = Math.max(MARGIN, viewport.height - MARGIN - popoverHeight);
-  const top = clamp(preferred, MARGIN, maxTop);
 
-  return { top, left, side };
+  // Beside the target the card centres on the shared edge rather than on the target itself,
+  // otherwise a wide target pushes the card off screen even when there is room for it.
+  if (side === 'left' || side === 'right') {
+    const left = side === 'left' ? target.left - GAP - width : target.left + target.width + GAP;
+    const top = target.top + target.height / 2 - popoverHeight / 2;
+    return { top: clamp(top, MARGIN, maxTop), left: clamp(left, MARGIN, maxLeft), side };
+  }
+
+  const left = clamp(target.left + target.width / 2 - width / 2, MARGIN, maxLeft);
+  const preferred = side === 'below' ? target.top + target.height + GAP : target.top - GAP - popoverHeight;
+  return { top: clamp(preferred, MARGIN, maxTop), left, side };
 }
 
 /** Centre of the target's chosen edge, for the caret. */
 export function caretAnchor(target: Box, side: Side): { x: number; y: number } {
+  if (side === 'left') return { x: target.left, y: target.top + target.height / 2 };
+  if (side === 'right') return { x: target.left + target.width, y: target.top + target.height / 2 };
   return {
     x: target.left + target.width / 2,
     y: side === 'below' ? target.top + target.height : target.top,

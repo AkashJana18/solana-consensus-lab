@@ -1,22 +1,27 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../hooks/useReducedMotion';
-import { useStore } from '../store/useStore';
+import { useStore, type Tab } from '../store/useStore';
 import { boxOf, caretAnchor, place, unionBox, type Box, type Viewport } from '../tour/placement';
-import { TOUR_STEPS } from '../tour/steps';
+import { visibleSteps } from '../tour/steps';
 
 /**
  * A component tour: highlight one control, say what it does, move on.
  *
- * Three deliberate constraints, all of them learned from watching this get built wrong once:
+ * Four deliberate constraints, three of them learned from watching this get built wrong:
  *
  * - It never shows itself. One button opens it, and nothing else does, so it cannot break a
  *   test that is not about the tour and cannot block a returning visitor.
  * - It is not a modal. No backdrop, no focus trap, no `aria-modal`. There is no dim, so the
  *   highlighted component stays fully readable and clickable while it is ringed, which is
  *   the entire reason for ring-only rather than Zugzwang's cut-a-hole-in-the-dark.
- * - It never changes the app. Next moves the highlight and nothing else. The tour describes;
- *   the lessons, which already stop at the right moments and check their copy against the
- *   trace, are where someone actually drives the simulation.
+ * - It never changes the simulation. No scenario, no seed, no protocol mode. Switching mode
+ *   would rebuild both workers and restart the run at t=0 mid-tour, which is teaching by
+ *   destroying the thing being described, and the lessons are where someone drives the
+ *   simulation deliberately.
+ * - It may open the inspector tab, and nothing else. The five panel steps describe content
+ *   that is only mounted when its tab is active, so without this they ringed nothing and
+ *   the card floated in the middle of the screen. The original tab is restored when the tour
+ *   closes, so the app is left as it was found.
  *
  * The ring is Solana green on purpose: this is the one place in the UI where the project's
  * own identity should be visible, and it is not a data channel, so it does not collide with
@@ -24,21 +29,50 @@ import { TOUR_STEPS } from '../tour/steps';
  */
 export function ComponentTour() {
   const open = useStore((s) => s.tourOpen);
+  const mode = useStore((s) => s.mode);
   const set = useStore((s) => s.set);
   const [index, setIndex] = useState(0);
   const reduced = useReducedMotion();
   const viewport = useViewport(open);
 
-  const step = TOUR_STEPS[index];
+  // Steps whose panel cannot be opened in this mode are not in the list at all, so the
+  // counter reflects what the reader is actually being shown. The mode never changes while
+  // the tour is open, so `visible` is stable for the life of the tour.
+  const visible = visibleSteps(mode);
+  const step = visible[index];
+
   // One selector per step by construction (see steps.ts). querySelectorAll still runs,
   // because a single logical thing can appear once per protocol in Compare mode and those
   // are unioned into one ring rather than drawn twice.
-  const box = useTargetBox(step.target, open);
+  const box = useTargetBox(step?.target ?? '', open);
+
+  // The tab to put back when the tour closes, captured on the way in rather than from the
+  // closure of whichever handler happened to close it.
+  const savedTab = useRef<Tab | null>(null);
 
   const close = useCallback(() => {
     set({ tourOpen: false });
     setIndex(0);
   }, [set]);
+
+  /**
+   * Move to a step, opening whatever panel it needs in the same commit.
+   *
+   * The tab has to be set here, in the event handler, rather than in an effect: an effect
+   * runs after the render that changed `index`, so the measure effect would first look for
+   * a panel the DOM does not have yet, find nothing, centre the card, and only correct on a
+   * second pass. Setting both together means the panel is mounted in the render that also
+   * carries the new step, and the ring lands on it the first time.
+   */
+  const goTo = useCallback(
+    (i: number) => {
+      const target = visible[i];
+      if (!target) return;
+      setIndex(i);
+      if (target.tab) set({ tab: target.tab });
+    },
+    [set, visible],
+  );
 
   const next = useCallback(() => {
     // Read the index from the closure rather than deciding inside a setIndex updater.
@@ -46,14 +80,28 @@ export function ComponentTour() {
     // setState-during-render of a different component. Done on the last step closes,
     // because saturating at the final index would leave a button labelled Done that does
     // nothing.
-    if (index >= TOUR_STEPS.length - 1) {
+    if (index >= visible.length - 1) {
       set({ tourOpen: false });
       setIndex(0);
       return;
     }
-    setIndex(index + 1);
-  }, [index, set]);
-  const back = useCallback(() => setIndex(Math.max(0, index - 1)), [index]);
+    goTo(index + 1);
+  }, [index, visible.length, set, goTo]);
+  const back = useCallback(() => goTo(Math.max(0, index - 1)), [goTo, index]);
+
+  // Capture the tab on open and put it back on close, for every route out: the card's Skip
+  // and Done, Escape, and the top bar's own toggle, which writes tourOpen directly and so
+  // never passes through `close` above. Keyed on `open` rather than on the handlers, which
+  // is the only way to catch that last one.
+  useEffect(() => {
+    if (open) {
+      savedTab.current = useStore.getState().tab;
+      return;
+    }
+    const was = savedTab.current;
+    savedTab.current = null;
+    if (was !== null && useStore.getState().tab !== was) useStore.getState().set({ tab: was });
+  }, [open]);
 
   // Escape closes, arrows move. Registered in the capture phase on `document` so the keys
   // are handled before the window-level transport shortcuts in App.tsx, which would
@@ -82,7 +130,7 @@ export function ComponentTour() {
   if (!open || !step) return null;
 
   const isFirst = index === 0;
-  const isLast = index === TOUR_STEPS.length - 1;
+  const isLast = index === visible.length - 1;
 
   return (
     <>
@@ -96,7 +144,7 @@ export function ComponentTour() {
         label={step.label}
         text={step.text}
         index={index}
-        count={TOUR_STEPS.length}
+        count={visible.length}
         missing={box === null}
         anchor={box ? caretAnchor(box, place(box, viewport, 246).side) : null}
         viewport={viewport}
@@ -119,9 +167,16 @@ export function ComponentTour() {
  * Resolve a step's selector to a rectangle, in viewport coordinates.
  *
  * Returns null when nothing matched or everything matched is zero-size, which is the
- * "nothing to point at" case: the legend is `display: none` below 1300px, and
- * Inspector.tsx filters tabs by protocol so the Votor tab is absent in Tower-only mode.
- * The card then centres itself and says so, rather than pointing at the origin.
+ * "nothing to point at" case: a collapsed legend or a filtered-out control reports 0x0 from
+ * `display: none`. The card then centres itself and says so, rather than pointing at the
+ * origin.
+ *
+ * This is now purely defensive. The two cases that used to reach it are gone: a panel the
+ * current mode cannot show is skipped by `visibleSteps` rather than shown empty, and the
+ * legend is only hidden below 1200px, which is narrower than the 1300px at which the tour
+ * button disappears, so the legend is always visible while the tour can be opened. Kept
+ * anyway, because a future breakpoint or a new step can reintroduce it, and a centred card
+ * that says so is the right answer when it happens.
  */
 function useTargetBox(selector: string, active: boolean): Box | null {
   const [box, setBox] = useState<Box | null>(null);
@@ -214,12 +269,32 @@ function TourCard({
 
   // The caret points at the middle of the target's chosen edge, but only when the card is
   // actually beside it; after clamping, a card pushed to a viewport corner has no meaningful
-  // anchor and a caret would point at nothing.
-  const showCaret = at !== null && anchor !== null && Math.abs(anchor.x - (at.left + 320 / 2)) < 140;
+  // anchor and a caret would point at nothing. The horizontal case is a different test: the
+  // card is beside the target by construction, so the anchor only has to be on the shared
+  // edge, which means within the card's own height.
+  const side = at?.side ?? 'center';
+  const showCaret =
+    at !== null && anchor !== null &&
+    (side === 'left' || side === 'right'
+      ? anchor.y >= at.top && anchor.y <= at.top + CARD_H
+      : Math.abs(anchor.x - (at.left + 320 / 2)) < 140);
+
+  // Each side puts the caret on the edge that faces the target, rotated so its two borders
+  // meet at the point. The CSS drops the two borders that would otherwise show against the
+  // card's own fill. Computed only when there is a caret to place: `anchor` and `at` are
+  // both null for a step whose target is missing, and a centred card has no edge to point
+  // from.
+  const caret =
+    showCaret && anchor !== null && at !== null
+      ? side === 'below' ? { top: -5, left: anchor.x - at.left }
+      : side === 'above' ? { bottom: -5, left: anchor.x - at.left }
+      : side === 'left' ? { right: -5, top: anchor.y - at.top }
+      : { left: -5, top: anchor.y - at.top }
+      : null;
 
   return (
-    <div className="tour-card" role="dialog" aria-label="Component tour" aria-live="polite" data-testid="tour-card" style={style} data-side={at?.side ?? 'center'}>
-      {showCaret && <span className="tour-caret" aria-hidden style={at?.side === 'below' ? { top: -5, left: anchor!.x - at!.left } : { bottom: -5, left: anchor!.x - at!.left }} />}
+    <div className="tour-card" role="dialog" aria-label="Component tour" aria-live="polite" data-testid="tour-card" style={style} data-side={side}>
+      {caret && <span className="tour-caret" aria-hidden style={caret} />}
       <div className="tour-head">
         <span className="tour-label">{label}</span>
         <span className="tour-count muted">
@@ -227,7 +302,7 @@ function TourCard({
         </span>
       </div>
       <p className="tour-text">{text}</p>
-      {missing && <p className="tour-missing muted">This part is not on screen at this width or in this mode. Next still works.</p>}
+      {missing && <p className="tour-missing muted">This part is not on screen at this width. Next still works.</p>}
       <div className="tour-actions">
         <button className="link" onClick={onSkip} data-testid="tour-skip">
           Skip
