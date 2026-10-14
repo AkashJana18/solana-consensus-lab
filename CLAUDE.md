@@ -36,7 +36,8 @@ bun run test                     # vitest unit tests (test/*.test.ts, node env)
 bunx vitest run test/eventBuffer.test.ts   # one unit test file
 bun run e2e                      # Playwright; starts dev server itself. Once: bunx playwright install chromium
 bunx playwright test e2e/lesson.spec.ts    # one e2e spec
-bun run build                    # strict tsc (zero errors) + vite → web/dist
+bun run build                    # strict tsc (zero errors) + generate guides into web/public + vite → web/dist
+bun run build:content            # just regenerate the written guides (they are gitignored)
 cargo run -p sim-cli -- run --scenario leader-down --protocol alpenglow --events 100000 --only certificate,pool_event  # check event timings before writing lesson copy (--events defaults to 0 = print none)
 ```
 
@@ -129,6 +130,23 @@ resolves; `startUrlSync` mirrors the store back with a debounced `replaceState`,
 writing `t` only while paused. Custom scenarios go in `s=` as deflate-raw +
 base64url.
 
+**What a crawler sees** (`web/index.html` + `web/scripts/build-content.ts`).
+The app has no SSR, so without help it presents one URL with an empty body to
+anything that does not run JavaScript. Two pieces fix that, both part of
+`bun run build`. `index.html` holds an `<h1>`, the headline numbers and links
+inside `#root`; React 18 `createRoot().render()` destroys existing container
+children on its first commit, so the app replaces it with no hydration branch
+(keep that block short and free of time-dependent wording, since with scripting
+off every word must stay true). `build-content.ts` then emits script-free HTML
+into `web/public/`: the comparison page, `/lessons.html`, `/lessons/<id>.html`,
+`/protocols.html` and `sitemap.xml`. Their content is **derived, never retyped**
+(lesson pages import `LESSONS`, the comparison page parses the results table out
+of `README.md`, the reference is `docs/protocols.md`), so edit the source and the
+page follows on the next build. Output is gitignored, links are relative because
+`base: './'` must keep working from a Pages sub-path, and canonicals name the
+Vercel deployment as the canonical copy. `web/src/util/pageTitle.ts` rewrites
+`document.title` per scenario/protocol/lesson for share links.
+
 **Engine ↔ UI contract** is `docs/wasm-api.md`; `crates/sim-wasm/src/lib.rs`
 implements it and `web/src/engine/types.ts` mirrors it. Times are microseconds
 except fields named `_ms`. `certificate.stake_pct` is 0–1, pool `pct` is 0–100.
@@ -168,8 +186,13 @@ Tower roots never conflict, determinism over all builtin scenarios).
 `properties.proptest-regressions` is checked in; keep it (proptest replays those
 seeds every run, so a newly found failure stays failing until fixed). Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
-`breakpoint` (every trigger), `markdown`, and `lessons` (registry integrity);
-`e2e/analytics.spec.ts`
+`breakpoint` (every trigger), `markdown` (incl. tables), `lessons` (registry
+integrity), `pageTitle`, and `content` (every generated page has a title,
+description, canonical, `<h1>` and valid JSON-LD; no block nested in a `<p>`;
+every cross-link resolves and stays relative; the sitemap matches the pages);
+`e2e/seo.spec.ts` re-checks the generated pages over HTTP with
+`javaScriptEnabled: false`, which is the only honest way to assert on what a
+crawler receives. `e2e/analytics.spec.ts`
 covers the GA4 tag and that a blocked one stops nothing, `e2e/smoke.spec.ts` and
 `compare.spec.ts` capture the screenshots in
 `web/e2e/screenshots/` that the README embeds, through `e2e/capture.ts`. The
@@ -181,7 +204,9 @@ Skip-certificates lesson, `share.spec.ts` restores a share link,
 guard on layout below the 1440px Playwright viewport, `timeline.spec.ts` covers
 the memoised layers, `node-picker.spec.ts` covers the node picker and the
 canvas's accessible name, and `analytics.spec.ts` covers the GA4 tag. The Events
-feed is virtualised, so e2e assertions on it can only see the newest rows.
+feed is virtualised, so e2e assertions on it can only see the newest rows. If
+`bun run e2e` fails on GA4, suspect a stale dev server on :5173 first:
+`reuseExistingServer` adopts one that started without `VITE_GA_ID`.
 
 ## Note
 

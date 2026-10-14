@@ -20,7 +20,8 @@ bun run dev                      # http://localhost:5173
 ## Build & deploy
 
 ```sh
-bun run build                    # tsc (strict, zero errors) + vite → web/dist/
+bun run build                    # tsc (strict, zero errors) + generate guides + vite → web/dist/
+bun run build:content            # just regenerate the written guides into web/public/
 bun run preview                  # serve the production build locally
 ```
 
@@ -28,13 +29,47 @@ bun run preview                  # serve the production build locally
 (or any static host / sub-path). The wasm binary is served as a plain asset and loaded
 inside the Web Worker via `fetch`, so no special headers are needed.
 
+## Written guides (what a crawler sees)
+
+The app is a client-rendered SPA with no SSR, so on its own it presents one URL with an
+empty body to anything that does not execute JavaScript. Two things fix that, and both are
+part of the normal build:
+
+- **A prerendered shell.** `index.html` puts an `<h1>`, the headline numbers and links to
+  the guides inside `<div id="root">`. React 18's `createRoot().render()` destroys the
+  container's existing children on its first commit, so the app replaces all of it on mount
+  with no hydration branch, and nothing is left underneath the canvas. Keep that block short
+  and free of time-dependent wording: with scripting off, every word on it must stay true.
+- **Generated guides** (`scripts/build-content.ts`), plain HTML with no script at all:
+  `/tower-vs-alpenglow.html`, `/lessons.html`, `/lessons/<id>.html` per lesson,
+  `/protocols.html` and `/sitemap.xml`. They are written into `web/public/` so the dev server,
+  the production build and the e2e suite all serve the same bytes.
+
+Their content is derived, never retyped: lesson pages import `LESSONS` from `src/lessons`, the
+comparison page reads its numbers out of the results table in `README.md`, and the protocol
+reference is `docs/protocols.md`. Edit the source and the page changes with it on the next
+build. Generated files are gitignored.
+
+Relative links throughout, because `base: './'` has to keep working from a Pages sub-path;
+canonicals and the sitemap are absolute and point at the Vercel deployment, which is the
+canonical copy.
+
+`test/content.test.ts` covers the builders (every page has a title, description, canonical,
+`<h1>` and valid JSON-LD; no block nested inside a `<p>`; every cross-link resolves and stays
+relative). `e2e/seo.spec.ts` re-checks all of it over HTTP with `javaScriptEnabled: false`,
+which is the only honest way to assert on what a crawler receives.
+
 ## Test
 
 ```sh
-bun run test                     # vitest: event buffer, interpolation, tx stages, URL state, triggers, markdown, lesson registry
+bun run test                     # vitest: event buffer, interpolation, tx stages, URL state, triggers, markdown, lesson registry, page titles, generated guides
 bunx playwright install chromium # once
 bun run e2e                      # Playwright (starts the dev server itself); also runs in CI
 ```
+
+If `bun run e2e` fails on GA4, check for a stale dev server first: `reuseExistingServer` in
+`playwright.config.ts` adopts one already on :5173, and it would have started without the
+`VITE_GA_ID` the analytics specs assert on.
 
 - `e2e/smoke.spec.ts` loads the page, selects `happy-path`, plays at 20× and asserts the
   Transaction panel shows a finalized time for Alpenglow, then writes `e2e/screenshots/happy-path.png`.
@@ -54,6 +89,10 @@ bun run e2e                      # Playwright (starts the dev server itself); al
   that an impossible `?node=` from the URL is dropped rather than left dangling.
 - `e2e/tooltip.spec.ts` holds the toolbar's hover/focus names: every icon-only control describes
   itself, the tooltip sits under the control, it cannot swallow clicks, and Escape dismisses it.
+- `e2e/seo.spec.ts` runs with JavaScript disabled and asserts what a crawler actually gets: the
+  prerendered shell on `/`, every generated guide served with a title, description, canonical,
+  `<h1>` and JSON-LD, every cross-link between them returning 200, and a sitemap whose every URL
+  resolves. It also checks the counterpart, that React replaces the shell once it mounts.
 
 The Playwright viewport is 1440x900, so `responsive.spec.ts` is the only thing that exercises a
 narrow window. `smoke.spec.ts` and `compare.spec.ts` rewrite the tracked screenshots on every run;
@@ -148,9 +187,14 @@ export const skipCerts: Lesson = {
   actual slot, stake or metric. `lead` is shown before the stop; a step without a `question`
   runs as soon as it is entered.
 - Text is a small markdown subset (`lessons/markdown.ts`): paragraphs, `## ` headings,
-  `- ` bullets, `**bold**`, `` `code` ``, `[text](url)`.
+  `- ` bullets, `**bold**`, `` `code` ``, `[text](url)`, and GFM tables (needed by
+  `docs/protocols.md`, which is published as `/protocols.html`). Single `*asterisks*` are
+  deliberately **not** italic: `markdown.test.ts` pins them to plain text, so any lesson copy
+  that wants emphasis must use `**bold**`.
 - `lessons/runner.ts` drives the store and controller; `components/LessonPanel.tsx` renders the
   left column. `test/lessons.test.ts` checks every lesson's scenario exists and steps are well-formed.
+- Adding a lesson also adds a page: the generator walks `LESSONS`, so `bun run build:content`
+  emits `/lessons/<id>.html` and adds it to the sitemap with no further wiring.
 - Verify timings with the CLI before writing copy, e.g.
   `cargo run -p sim-cli -- run --scenario leader-down --protocol alpenglow --events 100000 --only certificate,pool_event`.
 
@@ -163,6 +207,7 @@ src/
   render/   colors.ts · layout.ts · interp.ts · particles.ts · scene.ts · CanvasView.tsx
   store/    useStore.ts (zustand) · runView.ts (event → view reducer)
   url/      state.ts (parse/format/compress) · sync.ts (store ⇄ address bar, share link)
+  util/     format.ts (µs/ms/bytes) · pageTitle.ts (per-state document.title)
   lessons/  types.ts · markdown.ts · runner.ts · index.ts · one lesson per file
   components/ Brand (the project mark, traced from SCL-logo.png) · TopBar (incl. ClockReadout) · Timeline
               Inspector (incl. NodePicker) · Modal · ScenarioModal
@@ -170,6 +215,7 @@ src/
               panels/ Transaction · Votor · Tower · Events · Metrics
               charts/ TallyBar · LockoutBars · ForkTree · StatTile
 test/     vitest unit tests        e2e/  Playwright specs + screenshots
+scripts/  build-content.ts (writer) · content/pages.ts (the pages) · content/render.ts (escaping, shell, sitemap)
 ```
 
 ### Contract notes (docs/wasm-api.md vs actual bindings)
