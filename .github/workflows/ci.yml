@@ -35,6 +35,20 @@ jobs:
         working-directory: web
       - run: bun run build
         working-directory: web
+      # The written guides are generated into web/public and copied into dist by vite, so a
+      # silent failure there would ship a site with one indexable URL again and every link
+      # check downstream would pass against nothing. Assert they actually landed.
+      - name: generated guides reach dist
+        working-directory: web
+        run: |
+          for f in robots.txt sitemap.xml lessons.html protocols.html \
+                   tower-vs-alpenglow.html lessons/one-tx.html lessons/votes-cost.html \
+                   lessons/skip-certs.html lessons/lockouts.html lessons/twenty-twenty.html; do
+            if [ ! -f "dist/$f" ]; then echo "::error::missing dist/$f"; exit 1; fi
+          done
+          # Every canonical in the sitemap must name the deployment, not a placeholder.
+          grep -q 'https://www.solanaconsensuslab.com/' dist/sitemap.xml
+          echo "guides present, sitemap points at the canonical origin"
   e2e:
     runs-on: ubuntu-latest
     needs: rust
@@ -46,6 +60,10 @@ jobs:
           path: web/src/wasm/pkg
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+        working-directory: web
+      # The e2e suite asserts the guides over HTTP against the dev server, which serves
+      # web/public. This job does not run `bun run build`, so generate them here.
+      - run: bun run build:content
         working-directory: web
       - run: bunx playwright install --with-deps chromium
         working-directory: web
