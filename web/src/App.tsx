@@ -12,6 +12,7 @@ import { Tooltip } from './components/Tooltip';
 import { TopBar } from './components/TopBar';
 import { lessonRunner } from './lessons/runner';
 import { protocolsFor, useStore, type LabState } from './store/useStore';
+import { pageTitle } from './util/pageTitle';
 import { decompressScenario, parseUrlState } from './url/state';
 
 /** Keys a focused control owns: pressing them must act on the control, not scrub the clock. */
@@ -31,12 +32,22 @@ export function App() {
   const wasmReady = useStore((s) => s.wasmReady);
   const mode = useStore((s) => s.mode);
   const scenarioJson = useStore((s) => s.scenarioJson);
+  const scenarioName = useStore((s) => s.scenarioName);
+  const isCustom = useStore((s) => s.isCustom);
   const seed = useStore((s) => s.seed);
   const fatal = useStore((s) => s.fatal);
   const notice = useStore((s) => s.notice);
   const customOpen = useStore((s) => s.customOpen);
   const lessonsOpen = useStore((s) => s.lessonsOpen);
-  const lessonActive = useStore((s) => s.lesson !== null);
+  const lessonId = useStore((s) => s.lesson?.id ?? null);
+  const lessonActive = lessonId !== null;
+
+  // A share link lands on one scenario, one protocol or one lesson, so name it in the tab
+  // and in anything reading the rendered title. The static <title> in index.html covers the
+  // bare URL; this keeps the rest honest.
+  useEffect(() => {
+    document.title = pageTitle({ scenarioName, mode, isCustom, lessonId: lessonId ?? undefined });
+  }, [scenarioName, mode, isCustom, lessonId]);
 
   // Boot: load wasm, then hydrate the store from the URL (or defaults).
   useEffect(() => {
