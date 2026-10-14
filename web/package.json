@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -p tsconfig.json && vite build",
+    "build": "tsc -p tsconfig.json && bun run build:content && vite build",
+    "build:content": "bun run scripts/build-content.ts",
     "preview": "vite preview",
     "test": "vitest run",
     "e2e": "playwright test",
