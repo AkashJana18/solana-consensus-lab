@@ -7,12 +7,10 @@
   "outputDirectory": "web/dist",
   "headers": [
     {
-      "//": "Vite fingerprints everything under /assets, so these URLs can never change meaning. Without this the 1.7 MB wasm and the 1 MB JS bundle are revalidated on every cold load, which is most of the app's Core Web Vitals problem.",
       "source": "/assets/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
     },
     {
-      "//": "The explainer pages are generated HTML, so they must not be cached as immutable or an edit to lesson copy would not reach anyone. Same for the prerendered shell in index.html, which changes whenever src/lessons copy does.",
       "source": "/((lessons(/.*)?|tower-vs-alpenglow|protocols)\\.html|index\\.html|sitemap\\.xml|robots\\.txt)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     }

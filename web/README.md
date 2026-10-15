@@ -29,6 +29,32 @@ bun run preview                  # serve the production build locally
 (or any static host / sub-path). The wasm binary is served as a plain asset and loaded
 inside the Web Worker via `fetch`, so no special headers are needed.
 
+### `vercel.json` holds data only, and that is deliberate
+
+Vercel's schema sets `additionalProperties: false` on a `headers[]` item, allowing only
+`source`, `headers`, `has` and `missing`. A `"//"`-prefixed key is therefore an **additional
+property**, and one inside that array fails the whole deployment before the build runs.
+Vercel reports it as `headers[0] should NOT have additional property '/'`.
+
+That is not hypothetical: the `headers` block shipped with a `"//"` comment key in each
+item, and every deployment from `58b5eee` onward failed with exactly that error. The last
+good deployment predates the block, which is why production was serving an empty
+`<div id="root">` and 404ing on `/lessons.html` while `main` built all of it correctly.
+`test/vercelConfig.test.ts` now fails on a nested `//` key in two seconds instead.
+
+The reasoning those comments carried, and where it goes now:
+
+- **`/assets/(.*)` is immutable.** Vite fingerprints everything under `/assets`, so those
+  URLs cannot change meaning. Without this the 1.7 MB wasm and the 1 MB JS bundle are
+  revalidated on every cold load, which is most of the app's Core Web Vitals problem.
+- **The generated pages are not.** `/lessons.html`, `/protocols.html`,
+  `/tower-vs-alpenglow.html`, `sitemap.xml` and `robots.txt` are written by
+  `build:content`, so caching them immutably would mean an edit to lesson copy never
+  reaches anyone. `index.html` is the same case: its prerendered shell changes whenever
+  the lesson copy does.
+
+If you want a comment next to a value, put it here rather than in the JSON.
+
 ## Written guides (what a crawler sees)
 
 The app is a client-rendered SPA with no SSR, so on its own it presents one URL with an
