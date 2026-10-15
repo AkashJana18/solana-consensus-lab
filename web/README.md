@@ -31,27 +31,36 @@ inside the Web Worker via `fetch`, so no special headers are needed.
 
 ### `vercel.json` holds data only, and that is deliberate
 
-Vercel's schema sets `additionalProperties: false` on a `headers[]` item, allowing only
-`source`, `headers`, `has` and `missing`. A `"//"`-prefixed key is therefore an **additional
-property**, and one inside that array fails the whole deployment before the build runs.
-Vercel reports it as `headers[0] should NOT have additional property '/'`.
+Two separate rules have each failed every deployment since `58b5eee`, and neither was
+visible without attempting one. The last good deployment predates the `headers` block, which
+is why production served an empty `<div id="root">` and 404ed on `/lessons.html` while
+`main` built all of it correctly.
 
-That is not hypothetical: the `headers` block shipped with a `"//"` comment key in each
-item, and every deployment from `58b5eee` onward failed with exactly that error. The last
-good deployment predates the block, which is why production was serving an empty
-`<div id="root">` and 404ing on `/lessons.html` while `main` built all of it correctly.
-`test/vercelConfig.test.ts` now fails on a nested `//` key in two seconds instead.
+**No `"//"` comment keys.** Vercel's schema sets `additionalProperties: false` on a
+`headers[]` item, allowing only `source`, `headers`, `has` and `missing`. A `"//"` key is
+an additional property, and the deployment dies before the build runs. Vercel reports it as
+`headers[0] should NOT have additional property '/'`. The same applies to `functions[*]`.
 
-The reasoning those comments carried, and where it goes now:
+**`source` is path-to-regexp, not RegExp.** Vercel parses it with path-to-regexp v6.1.0,
+which rejects capturing groups. The single pattern that used to cover every generated page
+was written in RegExp and failed with `Capturing groups are not allowed at 2`, surfaced as
+[`invalid-route-source-pattern`](https://vercel.link/invalid-route-source-pattern). Fixing
+only the comment keys exposed this one, which is why `test/vercelConfig.test.ts` parses
+every source with the same library and version Vercel documents.
+
+The rules, and the reasoning:
 
 - **`/assets/(.*)` is immutable.** Vite fingerprints everything under `/assets`, so those
   URLs cannot change meaning. Without this the 1.7 MB wasm and the 1 MB JS bundle are
   revalidated on every cold load, which is most of the app's Core Web Vitals problem.
 - **The generated pages are not.** `/lessons.html`, `/protocols.html`,
-  `/tower-vs-alpenglow.html`, `sitemap.xml` and `robots.txt` are written by
-  `build:content`, so caching them immutably would mean an edit to lesson copy never
-  reaches anyone. `index.html` is the same case: its prerendered shell changes whenever
-  the lesson copy does.
+  `/tower-vs-alpenglow.html`, `/lessons/<id>.html`, `sitemap.xml` and `robots.txt` are
+  written by `build:content` (or tracked, for `robots.txt`), so caching them immutably
+  would mean an edit to lesson copy never reaches anyone. `index.html` is the same case:
+  its prerendered shell changes whenever the lesson copy does.
+- **They are four rules, not one,** because path-to-regexp has no alternation. The test
+  asserts coverage against the paths the build actually emits, so a rule that is valid but
+  matches nothing fails locally rather than quietly mis-caching in production.
 
 If you want a comment next to a value, put it here rather than in the JSON.
 

@@ -1,27 +1,33 @@
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathToRegexp } from 'path-to-regexp';
+import { LESSONS } from '../src/lessons';
 
 /**
  * `vercel.json` is data only, and this is what keeps it that way.
  *
- * Vercel's schema sets `additionalProperties: false` on a `headers[]` item, allowing only
- * `source`, `headers`, `has` and `missing`, so a `"//"`-prefixed comment key inside one is
- * an additional property and fails the deployment before the build starts. Vercel reports
- * it as `headers[0] should NOT have additional property '/'`.
+ * Two separate things have each broken every deployment since 58b5eee, and neither was
+ * visible without attempting a deploy:
  *
- * This is not hypothetical. The `headers` block shipped with a `"//"` key in each item and
- * every deployment from 58b5eee onward failed with that error, which left production on
- * the last build before the block existed: an empty `<div id="root">` and a 404 on
- * `/lessons.html`, while `main` built all of it correctly. Nobody saw it until a deploy
- * was attempted, because nothing local looked at the file.
+ * 1. `"//"` comment keys inside `headers[]` and `functions[*]`. Vercel sets
+ *    `additionalProperties: false` on both, so a comment key is an additional property and
+ *    the deployment dies before the build runs. Reported as
+ *    `headers[0] should NOT have additional property '/'`.
+ * 2. A `source` written in RegExp syntax. Vercel parses it with path-to-regexp v6.1.0,
+ *    which rejects capturing groups outright: the pattern below failed with
+ *    `Capturing groups are not allowed at 2`, surfaced as
+ *    https://vercel.link/invalid-route-source-pattern
  *
- * The reasoning those comments carried now lives in web/README.md under
+ * Fixing only the first exposed the second, which is why both are asserted here. The
+ * patterns are parsed with the same library and version Vercel documents, so a rule that
+ * compiles here compiles there. And they are checked against the paths the build actually
+ * emits, so a rule that is valid but matches nothing is caught too.
+ *
+ * The reasoning the comments carried lives in web/README.md under
  * "`vercel.json` holds data only, and that is deliberate".
- *
- * `functions` is checked only if present. A branch that adds a serverless function adds
- * the block, and the same rule applies to it, but its absence is not a defect.
  */
 
 const VERCEL_JSON = fileURLToPath(new URL('../../vercel.json', import.meta.url));
@@ -39,9 +45,28 @@ function commentKeys(node: unknown, path: string[] = []): string[][] {
 }
 
 interface HeaderRule {
-  source?: string;
-  headers?: { key?: string; value?: string }[];
+  source: string;
+  headers: { key: string; value: string }[];
 }
+
+const RULES = doc.headers as HeaderRule[];
+
+/** The immutable rule, and everything else, resolved by Cache-Control value. */
+const immutable = RULES.filter((r) => r.headers.some((h) => h.value.includes('immutable')));
+const revalidate = RULES.filter((r) => r.headers.some((h) => h.value.includes('must-revalidate')));
+const matchersFor = (rules: HeaderRule[]) => rules.map((r) => pathToRegexp(r.source));
+const coveredBy = (rules: HeaderRule[], path: string) => matchersFor(rules).some((re) => re.test(path));
+
+/** Every path `build:content` writes, plus the shell and robots.txt, which are not generated. */
+const GENERATED = [
+  '/index.html',
+  '/lessons.html',
+  '/protocols.html',
+  '/tower-vs-alpenglow.html',
+  ...LESSONS.map((l) => `/lessons/${l.id}.html`),
+  '/sitemap.xml',
+  '/robots.txt',
+];
 
 describe('vercel.json', () => {
   it('carries no // comment keys anywhere', () => {
@@ -53,21 +78,37 @@ describe('vercel.json', () => {
     expect(found, `// comment keys are not allowed in vercel.json: ${found.map((p) => p.join('.')).join(', ')}`).toEqual([]);
   });
 
-  it('keeps the two cache rules the app depends on', () => {
-    const headers = doc.headers as Required<HeaderRule>[];
-    const bySource = new Map(headers.map((h) => [h.source, h.headers]));
-    // Fingerprinted assets can never change meaning.
-    expect(bySource.get('/assets/(.*)')?.at(0)).toEqual({ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' });
-    // The generated guides must not be immutable, or an edit to lesson copy never lands.
-    const pages = [...bySource.entries()].find(([s]) => s.includes('lessons'));
-    expect(pages, 'the generated-pages cache rule is gone').toBeTruthy();
-    expect(pages?.[1].at(0)?.value).toBe('public, max-age=0, must-revalidate');
+  it('writes every header source in path-to-regexp, not RegExp syntax', () => {
+    // This is the check that would have caught the original pattern. path-to-regexp
+    // rejects capturing groups, so anything wrapped in a bare (...) fails here exactly as
+    // it fails on Vercel.
+    for (const rule of RULES) {
+      expect(() => pathToRegexp(rule.source), `${rule.source} is not valid path-to-regexp`).not.toThrow();
+    }
+  });
+
+  it('caches fingerprinted assets immutably and nothing else', () => {
+    for (const asset of ['/assets/index-abc123.js', '/assets/sim_wasm_bg-9f8a.wasm', '/assets/nested/deep.css']) {
+      expect(coveredBy(immutable, asset), `${asset} is not immutable`).toBe(true);
+    }
+    // An over-broad immutable rule would freeze lesson copy in a CDN for a year.
+    for (const page of GENERATED) {
+      expect(coveredBy(immutable, page), `${page} must not be immutable`).toBe(false);
+    }
+  });
+
+  it('revalidates every page the build writes, so an edit to lesson copy reaches people', () => {
+    // A rule that is valid but matches nothing is the quiet failure mode: the deployment
+    // succeeds and the caching is simply wrong, which is why coverage is asserted rather
+    // than just syntax.
+    const missed = GENERATED.filter((p) => !coveredBy(revalidate, p));
+    expect(missed, `these generated pages would be cached without a revalidate rule: ${missed.join(', ')}`).toEqual([]);
   });
 
   it('gives every header rule a source and at least one header', () => {
     // `headers` is a list of routes, each with a `source` and its own header list. A rule
     // that lost its `source` would match nothing and silently stop caching.
-    for (const rule of doc.headers as HeaderRule[]) {
+    for (const rule of RULES) {
       expect(typeof rule.source, 'a header rule has no source').toBe('string');
       expect(rule.source).not.toBe('');
       expect(Array.isArray(rule.headers) && rule.headers.length > 0, `${rule.source} sets no headers`).toBe(true);
@@ -86,14 +127,11 @@ describe('vercel.json', () => {
   it('never names a function the branch does not contain', () => {
     // A `functions` entry pointing at a file that is not in the tree is a build failure
     // that reads as nothing to do with headers. `main` has no api/ directory at all, so a
-    // functions block here would reference a file that does not exist.
+    // functions block here would point Vercel at a file that does not exist.
     const fns = doc.functions as Record<string, unknown> | undefined;
     if (!fns) return;
     for (const path of Object.keys(fns)) {
-      // existsSync rather than readFileSync, so the failure is this assertion rather than
-      // an ENOENT stack trace pointing at the test file.
-      const here = fileURLToPath(new URL('../../', import.meta.url));
-      expect(existsSync(resolve(here, path)), `${path} is named in vercel.json but is not in the tree`).toBe(true);
+      expect(existsSync(resolve(fileURLToPath(new URL('../../', import.meta.url)), path)), `${path} is named in vercel.json but is not in the tree`).toBe(true);
     }
   });
 });
