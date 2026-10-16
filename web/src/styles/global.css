@@ -460,15 +460,38 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 .tour-actions { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .tour-nav { display: flex; gap: 6px; }
 /* The caret is a rotated square with two borders, so the corner facing the target reads as
-   an arrow without a glyph or an image. */
-.tour-caret { position: absolute; width: 9px; height: 9px; background: var(--surface-2); border: 1px solid var(--tour); transform: translateX(-50%) rotate(45deg); }
+   an arrow without a glyph or an image.
+
+   The order of the two transform functions is the whole trick, and it was wrong once:
+   `translateX(50%) rotate(45deg)` applies rotate first and then translates along the
+   *rotated* x-axis, so the offset came out diagonal (about 3px left and 3px up, for a 9px
+   square) instead of along the edge, and the card beside the inspector panel showed an
+   arrow that missed its anchor in both axes at once. `translate(-50%, -50%) rotate(45deg)`
+   rotates about the element's own centre and then shifts in the parent's axes, which is what
+   "put the point on the anchor" means. Percentages resolve against the unrotated border box,
+   so the diamond's centre lands exactly on the edge coordinate the component sets.
+
+   So `top`/`left`/`right`/`bottom` on the caret are the diamond's centre, put on the shared
+   edge by ComponentTour: half the diamond overlaps the card (invisible, same fill as the
+   card) and half points at the target. Nothing below may add a translate of its own. */
+.tour-caret { position: absolute; width: 9px; height: 9px; background: var(--surface-2); border: 1px solid var(--tour); transform: translate(-50%, -50%) rotate(45deg); }
+/* Each side keeps the two borders whose shared corner is the point facing the target.
+
+   `rotate(45deg)` is clockwise, which fixes the corner-to-direction map: the top-left corner
+   ends up pointing up, top-right points right, bottom-right points down, bottom-left points
+   left. So 'below' keeps top+left, 'above' keeps bottom+right, 'left' (the card sits left of a
+   tall target, so the arrow must aim right) keeps top+right, and 'right' keeps bottom+left.
+
+   The two horizontal rules were each keeping the vertical pair, so the arrow beside the
+   inspector panel pointed up when the panel was on its right and down when it was on its left:
+   two of the four sides aimed along the card instead of at the target, and the ring beside it
+   made that look like the arrow was working. e2e/tour.spec.ts reads the computed border widths
+   per side and fails if this map ever slips again, since nothing in vitest's node environment
+   can see a border. */
 .tour-card[data-side='below'] .tour-caret { border-right: 0; border-bottom: 0; }
 .tour-card[data-side='above'] .tour-caret { border-left: 0; border-top: 0; }
-/* Beside a tall target (the inspector panel) the card sits to its left, so the caret moves
-   to the card's right edge and is rotated back the other way: the two borders left after
-   the ones below are dropped must meet at the right-hand point. */
-.tour-card[data-side='left'] .tour-caret { border-bottom: 0; border-right: 0; transform: translateX(50%) rotate(45deg); }
-.tour-card[data-side='right'] .tour-caret { border-left: 0; border-top: 0; transform: translateX(-50%) rotate(45deg); }
+.tour-card[data-side='left'] .tour-caret { border-bottom: 0; border-left: 0; }
+.tour-card[data-side='right'] .tour-caret { border-top: 0; border-right: 0; }
 @media (prefers-reduced-motion: reduce) {
   .tour-ring { transition: none; }
 }

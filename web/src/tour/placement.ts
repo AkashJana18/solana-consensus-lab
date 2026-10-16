@@ -83,6 +83,13 @@ export function sideFor(target: Box, viewport: Viewport, popoverHeight: number):
   return 'above';
 }
 
+/** The width the popover is actually laid out at: the preferred width, narrowed rather than
+ *  allowed to overflow a viewport that cannot hold it. Exported because a caller placing
+ *  something against the popover's own edges needs the same number, not a second guess. */
+export function popoverWidth(viewport: Viewport): number {
+  return Math.min(POPOVER_WIDTH, Math.max(0, viewport.width - MARGIN * 2));
+}
+
 /**
  * Where the popover goes.
  *
@@ -94,21 +101,56 @@ export function sideFor(target: Box, viewport: Viewport, popoverHeight: number):
  */
 export function place(target: Box, viewport: Viewport, popoverHeight: number): { top: number; left: number; side: Side } {
   const side = sideFor(target, viewport, popoverHeight);
-  const width = Math.min(POPOVER_WIDTH, Math.max(0, viewport.width - MARGIN * 2));
+  const width = popoverWidth(viewport);
   const maxLeft = viewport.width - MARGIN - width;
   const maxTop = Math.max(MARGIN, viewport.height - MARGIN - popoverHeight);
+  const want = preferred(target, popoverHeight, side, width);
+  return { top: clamp(want.top, MARGIN, maxTop), left: clamp(want.left, MARGIN, maxLeft), side };
+}
 
-  // Beside the target the card centres on the shared edge rather than on the target itself,
-  // otherwise a wide target pushes the card off screen even when there is room for it.
+/**
+ * Where the card wants to go on `side`, before the viewport clamps it into view.
+ *
+ * Split out of `place` so `adjacent` can ask whether the clamp moved anything without
+ * duplicating the arithmetic. Beside the target the card centres on the shared edge rather
+ * than on the target itself, otherwise a wide target pushes the card off screen even when
+ * there is room for it.
+ */
+function preferred(target: Box, popoverHeight: number, side: Side, width: number): { top: number; left: number } {
   if (side === 'left' || side === 'right') {
-    const left = side === 'left' ? target.left - GAP - width : target.left + target.width + GAP;
-    const top = target.top + target.height / 2 - popoverHeight / 2;
-    return { top: clamp(top, MARGIN, maxTop), left: clamp(left, MARGIN, maxLeft), side };
+    return {
+      top: target.top + target.height / 2 - popoverHeight / 2,
+      left: side === 'left' ? target.left - GAP - width : target.left + target.width + GAP,
+    };
   }
+  return {
+    left: target.left + target.width / 2 - width / 2,
+    top: side === 'below' ? target.top + target.height + GAP : target.top - GAP - popoverHeight,
+  };
+}
 
-  const left = clamp(target.left + target.width / 2 - width / 2, MARGIN, maxLeft);
-  const preferred = side === 'below' ? target.top + target.height + GAP : target.top - GAP - popoverHeight;
-  return { top: clamp(preferred, MARGIN, maxTop), left, side };
+/**
+ * Is the card still exactly where it wanted to be, `GAP` from the target on `side`?
+ *
+ * This is the caret's licence to exist. `place` clamps as a backstop, and a clamped card is
+ * no longer beside its target: the legend near the top of the canvas asked for 'above' with
+ * no room above it, so the card was pinned to the viewport's top margin and ended up 117px
+ * below the legend, and a caret on its edge pointed at empty canvas while appearing to point
+ * at the legend. Measured against the ring, that arrow was off by more than its own width.
+ *
+ * Exact equality, not a tolerance: both numbers come from the same arithmetic, so a clamped
+ * card differs by at least a pixel, and a subpixel threshold would only invite a placement
+ * that is a hair off to keep a caret it cannot honour.
+ */
+export function adjacent(
+  target: Box,
+  viewport: Viewport,
+  popoverHeight: number,
+  at: { top: number; left: number; side: Side },
+): boolean {
+  const width = popoverWidth(viewport);
+  const want = preferred(target, popoverHeight, at.side, width);
+  return want.top === at.top && want.left === at.left;
 }
 
 /** Centre of the target's chosen edge, for the caret. */

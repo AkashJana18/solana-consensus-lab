@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useStore, type Tab } from '../store/useStore';
-import { boxOf, caretAnchor, place, unionBox, type Box, type Viewport } from '../tour/placement';
+import { adjacent, boxOf, caretAnchor, place, popoverWidth, unionBox, POPOVER_WIDTH, type Box, type Viewport } from '../tour/placement';
 import { visibleSteps } from '../tour/steps';
+
+/**
+ * Height assumed for the card before it has measured itself, and the reason it is only that.
+ *
+ * `place` needs a height to centre a card beside a tall target and to decide above against
+ * below, so the first guess has to exist. It was a hardcoded 246 forever, which quietly made
+ * the tour's spacing wrong for every step whose copy was not four lines: the legend step's
+ * card is about 129px tall, so "above" put its bottom edge 117px above the legend instead of
+ * 14px, and the arrow on that edge pointed at the canvas rather than at the thing it was
+ * describing. A card that reports its own height removes the class of bug.
+ */
+const CARD_H_FALLBACK = 246;
 
 /**
  * A component tour: highlight one control, say what it does, move on.
@@ -32,6 +44,12 @@ export function ComponentTour() {
   const mode = useStore((s) => s.mode);
   const set = useStore((s) => s.set);
   const [index, setIndex] = useState(0);
+  // The card's own height, measured by the card, because placement cannot be correct without
+  // it. 246 is the height of the common case (eyebrow + four lines + buttons) and is only a
+  // first guess: the copy varies, and the legend's step rendered 129px tall, which put the card
+  // 117px off its target instead of GAP away while its caret pointed straight at the legend.
+  // The correction lands in a layout effect, so it happens before the first paint.
+  const [cardH, setCardH] = useState(CARD_H_FALLBACK);
   const reduced = useReducedMotion();
   const viewport = useViewport(open);
 
@@ -146,9 +164,11 @@ export function ComponentTour() {
         index={index}
         count={visible.length}
         missing={box === null}
-        anchor={box ? caretAnchor(box, place(box, viewport, 246).side) : null}
+        anchor={box ? caretAnchor(box, place(box, viewport, cardH).side) : null}
         viewport={viewport}
         target={box}
+        cardHeight={cardH}
+        onHeight={setCardH}
         isFirst={isFirst}
         isLast={isLast}
         onBack={back}
@@ -241,6 +261,8 @@ function TourCard({
   anchor,
   viewport,
   target,
+  cardHeight,
+  onHeight,
   isFirst,
   isLast,
   onBack,
@@ -255,45 +277,82 @@ function TourCard({
   anchor: { x: number; y: number } | null;
   viewport: Viewport;
   target: Box | null;
+  cardHeight: number;
+  onHeight: (h: number) => void;
   isFirst: boolean;
   isLast: boolean;
   onBack: () => void;
   onNext: () => void;
   onSkip: () => void;
 }) {
-  const CARD_H = 246;
-  const at = target ? place(target, viewport, CARD_H) : null;
+  const ref = useRef<HTMLDivElement>(null);
+  const at = target ? place(target, viewport, cardHeight) : null;
   const style = at
     ? { top: at.top, left: at.left }
     : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)' };
 
+  /**
+   * Report the card's real height back up, so the placement above can be redone with it.
+   *
+   * A layout effect, not an effect, because the whole point is that the correction lands before
+   * the browser paints: with a normal effect the reader would see the card placed against the
+   * 246px guess for one frame, which is exactly the misalignment this removes.
+   *
+   * Half-pixel quantisation with an equality bail-out is what keeps this from oscillating.
+   * Reporting the raw float would re-render whenever subpixel layout noise moved it, and
+   * re-placing the card can change the text's own wrapping, which changes the height again.
+   * A ResizeObserver keeps it honest when the copy reflows, e.g. the window narrows.
+   */
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const report = () => {
+      const h = Math.round(el.getBoundingClientRect().height * 2) / 2;
+      if (h > 0) onHeight(h);
+    };
+    report();
+    if (typeof ResizeObserver !== 'function') return;
+    const obs = new ResizeObserver(report);
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [onHeight]);
+
   // The caret points at the middle of the target's chosen edge, but only when the card is
-  // actually beside it; after clamping, a card pushed to a viewport corner has no meaningful
-  // anchor and a caret would point at nothing. The horizontal case is a different test: the
-  // card is beside the target by construction, so the anchor only has to be on the shared
-  // edge, which means within the card's own height.
+  // actually beside it. `adjacent` is the real test: a card that `place` had to clamp into a
+  // viewport corner is no longer GAP away from the target, so a caret on its edge would point
+  // at whatever happens to be there. The second condition is a guard for the one case adjacency
+  // cannot see: an anchor off the card's own extent, which would hang the diamond off a corner.
   const side = at?.side ?? 'center';
   const showCaret =
-    at !== null && anchor !== null &&
+    at !== null && anchor !== null && target !== null && adjacent(target, viewport, cardHeight, at) &&
     (side === 'left' || side === 'right'
-      ? anchor.y >= at.top && anchor.y <= at.top + CARD_H
-      : Math.abs(anchor.x - (at.left + 320 / 2)) < 140);
+      ? anchor.y >= at.top && anchor.y <= at.top + cardHeight
+      : Math.abs(anchor.x - (at.left + POPOVER_WIDTH / 2)) < 140);
 
-  // Each side puts the caret on the edge that faces the target, rotated so its two borders
-  // meet at the point. The CSS drops the two borders that would otherwise show against the
-  // card's own fill. Computed only when there is a caret to place: `anchor` and `at` are
-  // both null for a step whose target is missing, and a centred card has no edge to point
-  // from.
+  // Each side puts the caret's *centre* on the edge that faces the target, rotated so its two
+  // borders meet at the point there. The CSS drops the two borders that would otherwise show
+  // against the card's own fill, and it centres the rotated square with a translate applied
+  // after the rotate, so these coordinates are read as the point rather than as a corner.
+  // Computed only when there is a caret to place: `anchor` and `at` are both null for a step
+  // whose target is missing, and a centred card has no edge to point from.
+  //
+  // The centre is what `translate(-50%, -50%)` leaves at the element's own top-left, so every
+  // side is written as `left`/`top` and the two far edges are computed here rather than handed
+  // to CSS as `right`/`bottom`. Those two do not compose: `bottom` measures from the
+  // containing block's bottom while the translate still pulls the box up by half its height, so
+  // the arrow ended up 9px off the card's bottom edge and 9px off its right one. Subtracting
+  // the border is what lands it on the outline, because the containing block for an absolutely
+  // positioned child is the ancestor's *padding* box, 1px inside the border the reader sees.
   const caret =
     showCaret && anchor !== null && at !== null
-      ? side === 'below' ? { top: -5, left: anchor.x - at.left }
-      : side === 'above' ? { bottom: -5, left: anchor.x - at.left }
-      : side === 'left' ? { right: -5, top: anchor.y - at.top }
-      : { left: -5, top: anchor.y - at.top }
+      ? side === 'below' ? { top: -1, left: anchor.x - at.left - 1 }
+      : side === 'above' ? { top: cardHeight - 1, left: anchor.x - at.left - 1 }
+      : side === 'left' ? { left: popoverWidth(viewport) - 1, top: anchor.y - at.top - 1 }
+      : { left: -1, top: anchor.y - at.top - 1 }
       : null;
 
   return (
-    <div className="tour-card" role="dialog" aria-label="Component tour" aria-live="polite" data-testid="tour-card" style={style} data-side={side}>
+    <div className="tour-card" ref={ref} role="dialog" aria-label="Component tour" aria-live="polite" data-testid="tour-card" style={style} data-side={side}>
       {caret && <span className="tour-caret" aria-hidden style={caret} />}
       <div className="tour-head">
         <span className="tour-label">{label}</span>

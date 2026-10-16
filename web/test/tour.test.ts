@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { protocolsFor, type Mode } from '../src/store/useStore';
-import { GAP, MARGIN, NEEDS_BELOW, POPOVER_WIDTH, boxOf, caretAnchor, clamp, place, sideFor, unionBox, type Box } from '../src/tour/placement';
+import { GAP, MARGIN, NEEDS_BELOW, POPOVER_WIDTH, adjacent, boxOf, caretAnchor, clamp, place, sideFor, unionBox, type Box } from '../src/tour/placement';
 import { TOUR_STEPS, visibleSteps } from '../src/tour/steps';
 
 const box = (top: number, left: number, width: number, height: number): Box => ({ top, left, width, height });
@@ -110,6 +110,84 @@ describe('place', () => {
     const p = place(box(100, 20, 100, 30), narrow, 200);
     expect(p.left).toBe(MARGIN);
     expect(p.left + POPOVER_WIDTH).toBeGreaterThan(narrow.width); // clamped, not laid out
+  });
+});
+
+describe('adjacent', () => {
+  // The caret's licence to exist. A card `place` had to clamp into a viewport corner is no
+  // longer GAP from its target, and a caret on its edge points at whatever is there instead:
+  // the legend asked for 'above' with no room above, so the card was pinned to the top margin
+  // and sat 117px below the legend while its arrow appeared to point at it.
+  const check = (target: Box, height = 246, viewport = VIEWPORT) => adjacent(target, viewport, height, place(target, viewport, height));
+
+  it('holds when the card went where it wanted to', () => {
+    expect(check(box(100, 600, 120, 30))).toBe(true); // below
+    expect(check(box(840, 600, 120, 30))).toBe(true); // above
+    expect(check(box(118, 1040, 400, 682))).toBe(true); // left, the inspector
+    expect(check(box(100, 0, 400, 682))).toBe(true); // right, a tall target on the left edge
+  });
+
+  it('fails when the card was clamped away from its target vertically', () => {
+    // 'below' fits (270px of room) but the preferred position runs past maxTop, so the card
+    // is pinned to the viewport's bottom margin instead of sitting 14px under the target.
+    const low = box(600, 600, 200, 30);
+    const at = place(low, VIEWPORT, 246);
+    expect(at.side).toBe('below');
+    expect(at.top).toBe(VIEWPORT.height - MARGIN - 246);
+    expect(adjacent(low, VIEWPORT, 246, at)).toBe(false);
+  });
+
+  it('fails when the card was clamped away horizontally', () => {
+    // Below, but the target's centre is nearer the left edge than the card can reach.
+    const edge = box(600, 0, 40, 30);
+    const at = place(edge, VIEWPORT, 246);
+    expect(at.left).toBe(MARGIN);
+    expect(adjacent(edge, VIEWPORT, 246, at)).toBe(false);
+  });
+
+  it('fails when a card beside a tall target is pushed off screen', () => {
+    // Taller than the viewport, so centring on the shared edge has to be clamped.
+    const huge = box(-800, 1040, 400, 1800);
+    const at = place(huge, VIEWPORT, 246);
+    expect(at.side).toBe('left');
+    expect(at.top).toBe(MARGIN);
+    expect(adjacent(huge, VIEWPORT, 246, at)).toBe(false);
+  });
+
+  it('holds at the real measured height, which is what makes the gap exact', () => {
+    // The legend step's card is about 129px tall. Placed as if it were 246, the card went
+    // 'above' with 180px of room below it, so its bottom edge landed 117px above the legend
+    // instead of 14px and the caret on that edge pointed at the canvas. Measured, 'below' fits
+    // and is the better side, and the gap is GAP either way.
+    const legend = box(720, 200, 260, 20);
+    const measured = 129;
+    expect(place(legend, VIEWPORT, 246).side).toBe('above');
+    const at = place(legend, VIEWPORT, measured);
+    expect(at.side).toBe('below');
+    expect(at.top).toBe(legend.top + legend.height + GAP);
+    expect(adjacent(legend, VIEWPORT, measured, at)).toBe(true);
+
+    // And where 'above' is still the answer, the gap is exact too.
+    const lower = box(800, 200, 260, 20);
+    const up = place(lower, VIEWPORT, measured);
+    expect(up.side).toBe('above');
+    expect(up.top + measured).toBe(lower.top - GAP);
+
+    // Fitting the card is not the same as placing it: `sideFor` counts the card and not the
+    // viewport margin, so a target with room for the card but not for the card plus its gap
+    // ends up clamped, and adjacency is what stops the caret claiming to point at it.
+    const tight = box(750, 200, 260, 20);
+    const clamped = place(tight, VIEWPORT, measured);
+    expect(clamped.side).toBe('below');
+    expect(adjacent(tight, VIEWPORT, measured, clamped)).toBe(false);
+  });
+
+  it('does not compare against the card, only against the placement it asked for', () => {
+    // The same card position against a different target is not adjacency, which is what stops
+    // the caret from being drawn for a target that has since moved.
+    const target = box(100, 600, 120, 30);
+    const at = place(target, VIEWPORT, 246);
+    expect(adjacent(box(100, 700, 120, 30), VIEWPORT, 246, at)).toBe(false);
   });
 });
 

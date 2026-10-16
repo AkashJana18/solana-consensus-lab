@@ -157,6 +157,65 @@ test('a panel step opens its tab and rings the panel rather than the tab button'
   }
 });
 
+/**
+ * The caret must point at the target on all four sides.
+ *
+ * A rotated square with two borders left on it is a chevron, and which two borders survive is
+ * the whole of its direction. `rotate(45deg)` is clockwise, so the original top-left corner
+ * ends up pointing up, top-right right, bottom-right down and bottom-left left: 'below' keeps
+ * top+left, 'above' keeps bottom+right, 'left' keeps top+right (the card sits left of a tall
+ * target, so the arrow aims right at it) and 'right' keeps bottom+left. The two horizontal
+ * rules used to keep the vertical pair instead, so beside the inspector panel the arrow pointed
+ * up when the panel was to its right and down when it was to its left: aimed along the card
+ * rather than at the thing, and the ring next to it made that read as working.
+ *
+ * Asserted here and nowhere else, because vitest runs in node with no DOM and therefore cannot
+ * see a border. Reading the computed widths tests the direction the reader actually gets, not
+ * the intent written in the stylesheet.
+ */
+test('the caret points at the target on every side', async ({ page }) => {
+  // Computed border widths in top, right, bottom, left order. The two that survive are the arrow.
+  const want: Record<string, string> = {
+    below: '1px,0px,0px,1px',
+    above: '0px,1px,1px,0px',
+    left: '1px,1px,0px,0px',
+    right: '0px,0px,1px,1px',
+  };
+  const seen = new Map<string, string>();
+
+  await open(page);
+  for (let i = 0; i < visibleSteps('compare').length; i++) {
+    const card = page.getByTestId('tour-card');
+    await expect(card).toBeVisible();
+    const caret = card.locator('.tour-caret');
+    // A step whose card had to be clamped away from its target draws no caret on purpose, an
+    // arrow that far from the target would point at whatever happened to be in between. Those
+    // steps are skipped here rather than failed on.
+    if ((await caret.count()) > 0) {
+      const side = (await card.getAttribute('data-side'))!;
+      seen.set(
+        side,
+        await caret.evaluate((el) => {
+          const s = getComputedStyle(el);
+          return [s.borderTopWidth, s.borderRightWidth, s.borderBottomWidth, s.borderLeftWidth].join(',');
+        }),
+      );
+    }
+    await page.getByTestId('tour-next').click();
+    // Long enough for the card to commit the new step, short enough not to blur which step a
+    // border reading belongs to. Nothing here animates, so there is nothing to settle.
+    await page.waitForTimeout(60);
+  }
+
+  // All four, so the map is checked in full rather than on whichever side happened to render.
+  // 1440x900 shows them all: below for the bar and transport, above for the legend and the
+  // timeline, left for the five panel steps, right for the canvas.
+  expect([...seen.keys()].sort()).toEqual(['above', 'below', 'left', 'right']);
+  for (const [side, borders] of seen) {
+    expect(`${side}: ${borders}`, `${side} caret points away from its target`).toBe(`${side}: ${want[side]}`);
+  }
+});
+
 test('the tour puts the inspector tab back when it closes', async ({ page }) => {
   // Opened on a non-default tab so restoring to `transaction` cannot pass by accident.
   await page.goto('/?scenario=happy-path&mode=compare&tab=events');
