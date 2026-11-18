@@ -81,17 +81,40 @@ sup { font-size: 9px; }
 .fatal.notice { border-color: var(--warn); display: flex; gap: 10px; align-items: center; }
 
 /* ---------- lesson panel ---------- */
-.main.lesson { grid-template-columns: 340px 1fr 400px; }
-.lesson-panel { display: grid; grid-template-rows: auto auto 1fr auto; min-height: 0; border-right: 1px solid var(--border); background: var(--bg); }
-.lesson-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; }
+/* Floating guide. It used to be a 340px column inside .main, which shrank both canvases for
+   the whole lesson; it is now fixed over the app so the network keeps its full width.
+   LessonPanel.tsx writes --panel-x/--panel-y while the pane is free; the 1023px rule below
+   turns it into a full-width sheet. Placement is clamped in JS rather than CSS, because a
+   remembered corner has to stay reachable after the window shrinks. */
+.lesson-panel {
+  position: fixed;
+  z-index: 6;
+  left: var(--panel-x, 12px);
+  top: var(--panel-y, 92px);
+  width: min(360px, calc(100vw - 16px));
+  max-height: calc(100vh - var(--panel-y, 92px) - 8px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.55);
+}
+.lesson-head { flex: none; display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px 8px; cursor: grab; user-select: none; touch-action: none; }
+.lesson-panel[data-dragging='true'] .lesson-head { cursor: grabbing; }
+.lesson-head:focus-visible { outline-offset: -2px; }
+/* A grip that survives any font: two columns of dots, drawn rather than typed. */
+.lesson-grip { flex: none; width: 8px; height: 18px; margin-top: 3px; opacity: 0.6; background-image: radial-gradient(circle, var(--muted) 1px, transparent 1.4px); background-size: 4px 4px; }
+.lesson-head-text { flex: 1 1 auto; min-width: 0; }
 .lesson-kicker { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .lesson-title { font-size: 14px; font-weight: 700; }
-.lesson-steps { display: flex; gap: 6px; margin: 0; padding: 0 14px 10px; list-style: none; border-bottom: 1px solid var(--border); }
+.lesson-steps { flex: none; display: flex; gap: 6px; margin: 0; padding: 0 14px 10px; list-style: none; border-bottom: 1px solid var(--border); }
 .lesson-dot button { width: 12px; height: 12px; padding: 0; border-radius: 50%; border: 2px solid var(--border-strong); background: var(--surface); }
 .lesson-dot.done button { background: var(--good); border-color: var(--good); }
 .lesson-dot.current button { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 0 3px rgba(57, 135, 229, 0.25); }
 .lesson-dot button:disabled { cursor: default; opacity: 0.5; }
-.lesson-body { overflow: auto; min-height: 0; padding: 8px 14px 14px; }
+.lesson-body { flex: 1 1 auto; overflow: auto; min-height: 0; padding: 8px 14px 14px; }
 .lesson-body h2 { font-size: 15px; margin: 6px 0 10px; }
 .md p { margin: 0 0 10px; color: var(--ink-2); }
 .md h4 { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-2); }
@@ -113,7 +136,7 @@ sup { font-size: 9px; }
 .lesson-answer[data-correct='true'] { border-color: var(--good); background: rgba(12, 163, 12, 0.08); }
 .lesson-answer-line { margin-bottom: 4px; }
 .lesson-hit { margin: 0 0 10px; }
-.lesson-actions { display: flex; gap: 8px; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); }
+.lesson-actions { flex: none; display: flex; gap: 8px; justify-content: space-between; padding: 10px 14px; border-top: 1px solid var(--border); }
 .lesson-actions .primary { margin-left: auto; }
 /* floating confirmation toast: absolute against .share-anchor, so it never joins the transport flex row */
 .share-anchor { position: relative; display: flex; }
@@ -364,7 +387,6 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
 }
 @media (max-width: 1200px) {
   .main { grid-template-columns: 1fr 340px; }
-  .main.lesson { grid-template-columns: 300px 1fr 340px; }
   .legend { display: none; }
   /* Reclaim top bar space so the product name survives to a much lower width than it
      otherwise could. The slot chip is the cheapest thing to drop: every canvas caption
@@ -384,10 +406,11 @@ tr.reached .step-time[data-reached='true'] { color: var(--ink); }
    ships width=device-width, so phones landed here. */
 @media (max-width: 1023px) {
   .main { grid-template-columns: 1fr; grid-template-rows: minmax(200px, 1fr) minmax(0, 44vh); }
-  .main.lesson { grid-template-columns: 1fr; grid-template-rows: auto minmax(160px, 1fr) minmax(0, 38vh); }
   .inspector { border-left: 0; border-top: 1px solid var(--border); }
-  .lesson-panel { border-right: 0; border-bottom: 1px solid var(--border); }
-  .lesson-panel { max-height: 42vh; }
+  /* The pane becomes a full-width sheet here, anchored to the bottom until the reader drags
+     it up. It keeps floating: it used to take a grid row, which is what squeezed the canvas. */
+  .lesson-panel { left: 12px; right: 12px; width: auto; }
+  .lesson-panel.bottom { top: auto; bottom: 12px; max-height: 62vh; }
   /* Compare mode side by side would leave each canvas ~190px wide; stack them instead. */
   .canvases.compare { grid-template-columns: 1fr; grid-template-rows: 1fr 1fr; }
   .canvases.compare .canvas-wrap + .canvas-wrap { border-left: 0; border-top: 1px solid var(--border); }

@@ -38,7 +38,8 @@ test('canvases track their host when the layout changes', async ({ page }) => {
   await expectCanvasesFit(page, 1);
 
   // one-tx runs in compare mode, so the lesson takes over from the default alpenglow:
-  // the panel steals a grid column and the second canvas appears.
+  // the floating panel opens over the canvas and the second canvas appears. The panel no
+  // longer takes a grid column, so both canvases keep the full width of `.canvases`.
   await page.getByTestId('lessons-open').click();
   await page.getByTestId('lesson-pick-one-tx').click();
   await expect(page.getByTestId('lesson-panel')).toBeVisible();

@@ -111,6 +111,9 @@ If `bun run e2e` fails on GA4, check for a stale dev server first: `reuseExistin
 - `e2e/compare.spec.ts` does the same for `leader-down` in Compare mode.
 - `e2e/lesson.spec.ts` follows the *Skip certificates* lesson end to end: intro, auto-run step,
   predict → run → reveal, Back to a recorded stop, outro, finish.
+- `e2e/lesson-panel.spec.ts` holds the floating pane: opening a lesson does not narrow the
+  canvases, the header drags it, the corner survives a reload, and below 1024px it is a
+  full-width bottom sheet that only moves vertically.
 - `e2e/share.spec.ts` opens a share link, checks every field was restored, and reads the link
   the Share button copies to the clipboard.
 - `e2e/keyboard.spec.ts` covers the keyboard contract: Space presses a focused control instead of
@@ -227,7 +230,7 @@ export const skipCerts: Lesson = {
   deliberately **not** italic: `markdown.test.ts` pins them to plain text, so any lesson copy
   that wants emphasis must use `**bold**`.
 - `lessons/runner.ts` drives the store and controller; `components/LessonPanel.tsx` renders the
-  left column. `test/lessons.test.ts` checks every lesson's scenario exists and steps are well-formed.
+  floating pane. `test/lessons.test.ts` checks every lesson's scenario exists and steps are well-formed.
 - Adding a lesson also adds a page: the generator walks `LESSONS`, so `bun run build:content`
   emits `/lessons/<id>.html` and adds it to the sitemap with no further wiring.
 - Verify timings with the CLI before writing copy, e.g.

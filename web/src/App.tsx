@@ -144,7 +144,8 @@ export function App() {
   return (
     <div className="app">
       <TopBar />
-      <main className={`main ${lessonActive ? 'lesson' : ''}`}>
+      <main className="main">
+        {/* Floats over the canvases rather than taking a grid column; see .lesson-panel. */}
         {lessonActive && <LessonPanel />}
         <section className={`canvases ${protocols.length > 1 ? 'compare' : ''}`} aria-label="Network animation">
           {fatal && (
