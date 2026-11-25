@@ -133,9 +133,10 @@ test.describe('crawl entry points', () => {
     const xml = await res.text();
 
     const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
-    expect(locs).toHaveLength(GUIDES.length + 1);
+    expect(locs).toHaveLength(GUIDES.length + 2);
     expect(new Set(locs).size, 'duplicate sitemap entries').toBe(locs.length);
     expect(locs).toContain(`${ORIGIN}/`);
+    expect(locs).toContain(`${ORIGIN}/svm/`);
 
     for (const loc of locs) {
       const path = new URL(loc).pathname;

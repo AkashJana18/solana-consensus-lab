@@ -28,6 +28,10 @@ export function LessonPicker() {
           </li>
         ))}
       </ul>
+      <p className="muted">
+        Teaching the runtime as well as consensus? The <a href="./svm/">SVM Lab</a> follows one
+        program from Rust source to a committed account write.
+      </p>
       <div className="modal-actions">
         <button onClick={close}>Close</button>
       </div>

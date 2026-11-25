@@ -5,6 +5,9 @@
   "installCommand": "rustup target add wasm32-unknown-unknown && cargo install wasm-bindgen-cli --version 0.2.128 --locked && bun install --cwd web --frozen-lockfile",
   "buildCommand": "./scripts/build-wasm.sh && bun run --cwd web build",
   "outputDirectory": "web/dist",
+  "redirects": [
+    { "source": "/svm", "destination": "/svm/", "permanent": true }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -16,6 +19,14 @@
     },
     {
       "source": "/lessons/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "source": "/svm",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    },
+    {
+      "source": "/svm/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
     },
     {

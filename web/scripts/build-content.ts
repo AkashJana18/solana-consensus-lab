@@ -44,6 +44,10 @@ for (const page of pages) {
 }
 
 // The app itself is listed too: it is the destination every CTA points at, and the
-// prerendered shell in index.html is the only on-page text it has.
-writeFileSync(join(PUBLIC, 'sitemap.xml'), sitemapXml(['/', ...pages.map((p) => p.path)]));
-console.log(`  built public/sitemap.xml (${pages.length + 1} urls)`);
+// prerendered shell in index.html is the only on-page text it has. The SVM lab is a
+// second entry with its own prerendered shell, so it gets its own line.
+writeFileSync(
+  join(PUBLIC, 'sitemap.xml'),
+  sitemapXml(['/', '/svm/', ...pages.map((p) => p.path)]),
+);
+console.log(`  built public/sitemap.xml (${pages.length + 2} urls)`);
