@@ -56,6 +56,22 @@ Click **☰ Lessons**. Each loads a scenario and stops the clock at the moment t
 4. Lockouts and why partitions hurt TowerBFT
 5. 20+20
 
+## SVM Lab
+
+The same project hosts a second teaching app at [`/svm/`](https://www.solanaconsensuslab.com/svm/), built for Lecture 5 of the same course. It follows one counter program across the three layers the lecture uses:
+
+1. **Where the blockchain lives**: the validator process, the AccountsDB, and the five 4 GiB sBPF regions, with a VM-to-host address probe and an aliasing-vs-mutability puzzle.
+2. **From Rust to a program account**: the toolchain stepper, a v4 deploy console, and the verifier with one fault injected at a time.
+3. **Inside the sandbox**: a step debugger over registers, `r10`, memory, syscalls and compute units, ending in a commit or a rollback.
+
+It runs a separate Rust core (`crates/svm-core`), not the consensus simulator, and every number carries its provenance. Model card: [`docs/svm-lab.md`](docs/svm-lab.md).
+
+```bash
+cargo test -p svm-core
+cargo run -p svm-cli -- run counter
+cd web && bun run dev   # http://localhost:5173/svm/
+```
+
 ## How faithful is it?
 
 - Vote thresholds and certificate types follow Alpenglow white paper v1.1 and SIMD-0326; real BLS signatures aren't simulated: a certificate arrives carrying its stake and is trusted.
@@ -71,5 +87,6 @@ Apache-2.0. Contributions welcome. "Solana" is a trademark of Solana Foundation,
 Further reading:
 - [`docs/protocols.md`](docs/protocols.md) both protocols as simulated
 - [`docs/architecture.md`](docs/architecture.md) module map, test map, honest limits
+- [`docs/svm-lab.md`](docs/svm-lab.md) the SVM Lab model card
 - [`web/README.md`](web/README.md) render loop, adding a lesson, URL scheme
 - [`docs/wasm-api.md`](docs/wasm-api.md) engine ↔ UI contract

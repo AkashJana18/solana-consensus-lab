@@ -183,7 +183,7 @@ Same engine, same trace, same UI. Only the rules differ.
 
 | | TowerBFT (mainnet today) | Alpenglow (SIMD-0326) |
 |---|---|---|
-| Reference | Agave `vote_state` | White paper v1.1, Algorithms 1–2 |
+| Reference | Agave `vote_state` | White paper v1.1, Algorithms 1 and 2 |
 | Clock | PoH: fixed `slot_ms` slots, leader windows | No global clock: `ParentReady + i·Δblock` |
 | Dissemination | Turbine: shreds through a stake-weighted tree | Rotor: one stake-weighted relay per shred, single hop |
 | Votes | Vote *transactions* packed into blocks (~300 B) | Vote *messages*, never on chain (150 B) |
@@ -364,3 +364,37 @@ What this simulator is, stated plainly so nobody has to guess:
 
 These are all parameterizable or milestone-scoped, and each is stated where it is defined: the point
 of the exercise is that a reader can tell modelled rules from simplified ones.
+
+## 12. The SVM Lab
+
+The `/svm/` app is a second teaching product with its own kernel. It exists because Lecture 5 is
+about the runtime under one transaction, not about consensus, and sharing `sim-core` would have
+meant a second, unrelated model inside the consensus engine.
+
+```mermaid
+flowchart LR
+    SCN["scenario JSON<br/>program · accounts · limits"] --> SVMCORE["svm-core<br/>memory · ISA · frames · syscalls · verifier"]
+    SVMCORE --> RUN["Run trace<br/>steps · accesses · CU · account diff"]
+    RUN --> SVMWASM["svm-wasm<br/>4 JSON exports"]
+    RUN --> SVMCLI["svm-cli<br/>run · verify · layout · programs"]
+    SVMWASM --> SVMUI["web/src/svm<br/>three chapters, trace player"]
+```
+
+| Path | What lives there | Notes |
+|---|---|---|
+| `crates/svm-core/src/limits.rs` | Every constant, with `Provenance::{Source, Docs, Lecture}` | The UI renders the provenance as a badge |
+| `crates/svm-core/src/memory.rs` | Five 4 GiB regions, the host mapping, bounds and permission errors | Chapter 1 |
+| `crates/svm-core/src/isa.rs` | Instruction subset, CU costs, syscall registry | Chapter 3 |
+| `crates/svm-core/src/programs.rs` | Nine builtins and fault injection | `bad-syscall` and `recursion` fail on purpose |
+| `crates/svm-core/src/verify.rs` | Ten independent checks | Chapter 2 injects one fault at a time |
+| `crates/svm-core/src/vm.rs` | Registers, frames, syscalls, commit/rollback, `Run` assembly | The trace is the only output |
+| `crates/svm-wasm/src/lib.rs` | `svmRun`, `svmVerify`, `svmLayout`, `svmPrograms` | JSON in, JSON out |
+| `crates/svm-cli/src/main.rs` | `run`, `verify`, `layout`, `programs` | Headless checks before writing lesson copy |
+| `web/svm/index.html` | The second Vite entry, with a script-free boot shell | Not a router in the consensus app |
+| `web/src/svm/chapters/` | Memory, build, execute | Chapters 1 and 2 are interactive diagrams; chapter 3 is the real trace |
+| `web/src/svm/engine/` | Types mirroring `trace.rs`, wasm loader, pure helpers | `model.ts` is unit-tested in node |
+
+The same three rules hold: the UI never simulates, the trace is the contract, and
+`web/src/svm/engine/types.ts` mirrors `crates/svm-core/src/trace.rs`. What is
+illustrative (the x86 translation, deploy CU, host addresses) is named as
+illustrative in the UI and in [`svm-lab.md`](svm-lab.md).

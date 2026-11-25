@@ -198,6 +198,17 @@ Key ideas:
 The whole-project map (crates, engine loop, render pipeline, test map, limits) is
 [`docs/architecture.md`](../docs/architecture.md); this section is the front end's own detail.
 
+## SVM Lab (second entry)
+
+`svm/index.html` is a second Vite entry (see `rollupOptions.input` in `vite.config.ts`), not a
+route inside this app. It has its own wasm build (`svm-wasm`) and its own UI under `src/svm/`;
+the two apps share `src/styles/global.css` and nothing else. There is no worker: a `Run` trace
+is a few hundred steps, so `svmRun` runs synchronously on the main thread and the React state
+machine steps through it. `src/svm/engine/types.ts` mirrors `crates/svm-core/src/trace.rs`, and
+`src/svm/engine/model.ts` holds the pure helpers (address mapping, conflict checks, deploy
+accounting, account replay) that `test/svmModel.test.ts` covers without a browser. The model
+card is [`docs/svm-lab.md`](../docs/svm-lab.md); `e2e/svm.spec.ts` is the boot-to-commit guard.
+
 ## Lessons
 
 A lesson is a plain TypeScript object (`src/lessons/types.ts`) registered in
@@ -266,7 +277,7 @@ scripts/  build-content.ts (writer) · content/pages.ts (the pages) · content/r
 - `inspect(node).pool` (Alpenglow) contains `null` entries for slots the node holds no
   tally for; the UI filters them. Tower `inspect().forks` entries carry extra `leader` and
   `replayed` fields.
-- `certificate.stake_pct` is a fraction (0–1) while pool tallies use percent (0–100).
+- `certificate.stake_pct` is a fraction (0 to 1) while pool tallies use percent (0 to 100).
 - `hash` values are u64 serialised as JSON numbers, so they lose precision past 2^53 and
   their low hex digits come out as `000`. The UI compares them for equality only and shows
   the *leading* 4 hex digits (the doc suggests the trailing 4, which are all zeros).

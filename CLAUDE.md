@@ -11,9 +11,17 @@ Protocol rules are paper-faithful on purpose (Alpenglow white paper v1.1, Agave
 `vote_state`). Do not simplify a rule for convenience; expose it as a parameter
 instead. `docs/protocols.md` is the instructor-facing spec of what is modeled.
 
+The repo also contains a second, independent teaching app at `/svm/`: the **SVM
+Lab** for Lecture 5. It follows one counter program through validator memory,
+compilation and deployment, and sBPF execution. Its kernel is `svm-core`, a
+small deterministic sBPF-shaped interpreter; it does not share code with
+`sim-core`, and it does not simulate consensus. `docs/svm-lab.md` is its model
+card, including what is illustrative and what is not modeled.
+
 ## Commands
 
-Rust workspace (`crates/sim-core`, `crates/sim-wasm`, `crates/sim-cli`):
+Rust workspace (`crates/sim-core`, `crates/sim-wasm`, `crates/sim-cli`,
+`crates/svm-core`, `crates/svm-wasm`, `crates/svm-cli`):
 
 ```bash
 cargo test --workspace                                  # all unit + property tests
@@ -25,11 +33,22 @@ cargo run -p sim-cli -- inspect --scenario partition-heal --protocol tower --nod
 cargo run -p sim-cli -- sweep --scenario offline-25pct --param faults.0.target.stake_pct=0..0.4:0.05 --seeds 10 --csv sweep.csv
 ```
 
+SVM Lab (`crates/svm-core`, `crates/svm-wasm`, `crates/svm-cli`). `cargo test
+--workspace` covers it too; these are the focused commands:
+
+```bash
+cargo test -p svm-core
+cargo run -p svm-cli -- run counter
+cargo run -p svm-cli -- run recursion
+cargo run -p svm-cli -- verify counter --fault syscall
+cargo run -p svm-cli -- programs
+```
+
 Web (`web/`). Use **bun**, never npm/npx/node (the nvm shim is broken in
 non-interactive shells on this machine):
 
 ```bash
-./scripts/build-wasm.sh          # from repo root; required before any web command, rerun whenever crates/ changes
+./scripts/build-wasm.sh          # from repo root; builds sim-wasm and svm-wasm; rerun whenever crates/ changes
 cd web && bun install
 bun run dev                      # http://localhost:5173 (strictPort)
 bun run test                     # vitest unit tests (test/*.test.ts, node env)
@@ -77,6 +96,16 @@ event (and mirror it in `web/src/engine/types.ts` and `docs/wasm-api.md`),
 never a side channel. `docs/architecture.md` is the contributor map (Mermaid
 diagrams, module table, test map, "where do I add X", and the honest limits of
 the model) and keep it in step with this file's summary.
+
+**The SVM Lab is a second pipeline.** `crates/svm-core` owns a scenario, five
+memory regions, the instruction subset, the verifier and the `Run` trace;
+`svm-wasm` exposes four JSON functions and `svm-cli` is the headless runner.
+`web/svm/index.html` is a second Vite entry (the `rollupOptions.input` in
+`web/vite.config.ts`), not a router inside the consensus app. Its UI lives in
+`web/src/svm/`, consumes only the `Run` JSON, and has no worker: the traces are
+small enough to run on the main thread. `web/src/svm/engine/types.ts` mirrors
+`crates/svm-core/src/trace.rs`; `docs/svm-lab.md` is the model card. The two
+apps share `web/src/styles/global.css` and nothing else.
 
 **Engine / protocol split** (`sim.rs` + `protocol/mod.rs`). `Simulator<P>` owns
 the event heap, nodes, `Network`, `FaultState`, RNG and trace. A `Protocol`
@@ -149,7 +178,7 @@ Vercel deployment as the canonical copy. `web/src/util/pageTitle.ts` rewrites
 
 **Engine ↔ UI contract** is `docs/wasm-api.md`; `crates/sim-wasm/src/lib.rs`
 implements it and `web/src/engine/types.ts` mirrors it. Times are microseconds
-except fields named `_ms`. `certificate.stake_pct` is 0–1, pool `pct` is 0–100.
+except fields named `_ms`. `certificate.stake_pct` is 0 to 1, pool `pct` is 0 to 100.
 Block hashes are u64 masked to 53 bits (`dissemination::block_hash`) so they
 survive JSON → JS numbers; compare by equality only. The "Contract notes"
 section of `web/README.md` lists known doc-vs-binding drift; update the doc when
@@ -175,6 +204,10 @@ emits ~60k `msg_sent` events, so never render events as DOM.
 - Rotor relays are sampled per shred with replacement, proportional to stake; a permutation made every node a relay in small clusters and offline low-stake nodes starved slices.
 - `Target::StakePct` picks random nodes that fit under the target and, if far short, the *smallest* remaining node only when that lands closer to the target; the old "any node" overshoot took a 95% whale offline for a 19% target (liveness proptest seed 9684). Realized offline stake can therefore be *below* the target.
 - An Alpenglow leader stops producing slices for a slot once its Pool holds a Skip certificate for it, and receivers do not count a block in a skipped slot as "landed" for the hero tx; otherwise a tx could be buried in a dead block with no retry.
+- The SVM Lab's `cu-exhausted` program stops at the 200,000 CU budget, but the browser trace is capped at 2,000 steps. `steps_total` is the honest count, and the player says when it is showing a prefix.
+- The SVM Lab's x86 panel is an annotated translation, not a JIT. `svm-core` has no compiler, and the panel says so.
+- The SVM Lab's deploy CU is illustrative. The real loader prices writes differently; the model charges a fixed amount per chunk so the transaction-count tradeoff is visible.
+- The SVM Lab's host addresses in Chapter 1 are stable stand-ins. A real validator's addresses depend on ASLR and change on every run.
 
 ## Tests
 
@@ -184,10 +217,14 @@ tests at the bottom of `protocol/alpenglow/mod.rs` and `protocol/tower/mod.rs`,
 safe+live with ≤20% offline, no conflicting finalization through partitions,
 Tower roots never conflict, determinism over all builtin scenarios).
 `properties.proptest-regressions` is checked in; keep it (proptest replays those
-seeds every run, so a newly found failure stays failing until fixed). Web unit
+seeds every run, so a newly found failure stays failing until fixed). `svm-core`
+adds 20 unit tests over commit and rollback, CU exhaustion, read-only accounts,
+heap and input bounds, the frame limit, recursion rejection, every verifier
+fault, alignment and byte-identical reruns. Web unit
 tests cover `eventBuffer`, `interp`, `txStages`, `url` (round trip, compression),
 `breakpoint` (every trigger), `markdown` (incl. tables), `lessons` (registry
-integrity), `pageTitle`, and `content` (every generated page has a title,
+integrity), `pageTitle`, `svmModel` (mapping modes, account conflicts, the deploy
+plan, account replay) and `content` (every generated page has a title,
 description, canonical, `<h1>` and valid JSON-LD; no block nested in a `<p>`;
 every cross-link resolves and stays relative; the sitemap matches the pages);
 `e2e/seo.spec.ts` re-checks the generated pages over HTTP with
@@ -203,7 +240,10 @@ Skip-certificates lesson, `share.spec.ts` restores a share link,
 `keyboard.spec.ts` holds the keyboard contract, `responsive.spec.ts` is the only
 guard on layout below the 1440px Playwright viewport, `timeline.spec.ts` covers
 the memoised layers, `node-picker.spec.ts` covers the node picker and the
-canvas's accessible name, and `analytics.spec.ts` covers the GA4 tag. The Events
+canvas's accessible name, and `analytics.spec.ts` covers the GA4 tag.
+`e2e/svm.spec.ts` boots the second Vite entry, walks all three chapters, runs a
+passing counter and a failing read-only write, and checks that `?ch=` restores a
+chapter. The Events
 feed is virtualised, so e2e assertions on it can only see the newest rows. If
 `bun run e2e` fails on GA4, suspect a stale dev server on :5173 first:
 `reuseExistingServer` adopts one that started without `VITE_GA_ID`.
