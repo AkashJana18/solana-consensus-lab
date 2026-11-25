@@ -1,6 +1,13 @@
 [workspace]
 resolver = "2"
-members = ["crates/sim-core", "crates/sim-wasm", "crates/sim-cli"]
+members = [
+    "crates/sim-core",
+    "crates/sim-wasm",
+    "crates/sim-cli",
+    "crates/svm-core",
+    "crates/svm-wasm",
+    "crates/svm-cli",
+]
 
 [workspace.package]
 version = "0.1.0"

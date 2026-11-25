@@ -1,0 +1,11 @@
+[package]
+name = "svm-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Deterministic sBPF-subset runtime model for the SVM lab (Lecture 5)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
