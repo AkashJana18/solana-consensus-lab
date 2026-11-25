@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <title>SVM Lab: memory and execution | Solana Consensus Lab</title>
+    <meta
+      name="description"
+      content="Follow one Solana program from Rust source to a committed account write. Explore the five sBPF memory regions, the verifier, the syscall gate, and compute units."
+    />
+    <link rel="canonical" href="https://www.solanaconsensuslab.com/svm/" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "LearningResource",
+        "name": "SVM Lab: memory and execution",
+        "url": "https://www.solanaconsensuslab.com/svm/",
+        "description": "An interactive lab that follows one Solana program from Rust source to a committed account write: validator memory, the sBPF verifier, deployment, syscalls and compute units.",
+        "learningResourceType": "Interactive lab",
+        "educationalLevel": "Intermediate",
+        "isAccessibleForFree": true,
+        "license": "https://www.apache.org/licenses/LICENSE-2.0",
+        "provider": {
+          "@type": "Organization",
+          "name": "Solana Consensus Lab",
+          "url": "https://www.solanaconsensuslab.com/"
+        }
+      }
+    </script>
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Solana Consensus Lab" />
+    <meta property="og:url" content="https://www.solanaconsensuslab.com/svm/" />
+    <meta property="og:title" content="SVM Lab: memory and execution" />
+    <meta
+      property="og:description"
+      content="Where the blockchain lives, how Rust becomes an sBPF program account, and what happens inside the sandbox."
+    />
+    <meta property="og:image" content="https://www.solanaconsensuslab.com/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <style>
+      .boot {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        padding: 32px 24px;
+        text-align: center;
+        font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+        color: #f2f3f5;
+        background: #0d0e12;
+      }
+      .boot .kicker { margin: 0; color: #898781; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+      .boot h1 { margin: 0; font-size: 32px; font-weight: 650; letter-spacing: -0.02em; line-height: 1.1; }
+      .boot p { margin: 0; max-width: 62ch; color: #c3c2b7; font-size: 15px; line-height: 1.55; }
+      .boot nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px; margin-top: 4px; }
+      .boot a { color: #3987e5; text-decoration: none; font-size: 14px; }
+      .boot a:hover, .boot a:focus-visible { text-decoration: underline; }
+      .boot .note { color: #898781; font-size: 13px; }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot">
+        <p class="kicker">Solana Consensus Lab · Lecture 5</p>
+        <h1>SVM Lab: memory and execution</h1>
+        <p>
+          Follow one program from Rust source to a committed account write. See the five
+          sBPF memory regions, the verifier, the syscall gate, and the compute meter.
+        </p>
+        <nav>
+          <a href="?ch=memory">01 Where the blockchain lives</a>
+          <a href="?ch=build">02 From Rust to a program account</a>
+          <a href="?ch=execute">03 Inside the sandbox</a>
+        </nav>
+        <p class="note">
+          The lab needs JavaScript and WebAssembly. The <a href="../protocols.html">written reference</a>
+          does not.
+        </p>
+      </div>
+    </div>
+    <script type="module" src="../src/svm/main.tsx"></script>
+  </body>
+</html>
