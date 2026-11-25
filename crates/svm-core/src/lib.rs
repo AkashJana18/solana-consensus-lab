@@ -203,6 +203,16 @@ mod tests {
     }
 
     #[test]
+    fn the_deepest_frame_stays_inside_the_stack() {
+        let sc = scenario("recursion");
+        let run = vm::run(&sc.program().unwrap(), &sc);
+        let last = run.steps.last().unwrap();
+        // A frame is [r10 - 4 KiB, r10), so the pointer may reach the base but not pass it.
+        assert!(last.r10 >= crate::limits::STACK_BASE);
+        assert_eq!(last.r10, crate::limits::STACK_BASE);
+    }
+
+    #[test]
     fn verification_passes_the_builtins() {
         // Two builtins exist to fail: the unknown syscall, and recursion. Everything else
         // must survive the checklist.

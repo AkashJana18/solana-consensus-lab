@@ -284,7 +284,8 @@ pub fn rodata_placeholder() -> Vec<u8> {
 }
 
 pub fn stack_top(stack_bytes: usize) -> u64 {
-    STACK_BASE + stack_bytes as u64 - 8
+    // r10 points one past the top of the current frame, so locals live at [r10-8].
+    STACK_BASE + stack_bytes as u64
 }
 
 pub fn text_base() -> u64 {

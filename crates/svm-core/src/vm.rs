@@ -288,7 +288,7 @@ fn execute(
             Ok((StepKind::Instruction, None, Flow::Continue))
         }
         Insn::Call { target } => {
-            if regs.depth >= scenario.call_depth || regs.r[10] < STACK_BASE + 8 {
+            if regs.depth >= scenario.call_depth || regs.r[10] < STACK_BASE + FRAME_BYTES as u64 {
                 return Err(VmError::Depth(regs.depth));
             }
             if *target as usize >= program_len {

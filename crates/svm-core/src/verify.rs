@@ -1,4 +1,4 @@
-//! The eleven-check verifier from the lecture, reduced to the checks this subset can
+//! The verifier checks from the lecture, reduced to the checks this subset can
 //! actually enforce. Each check is independent so Chapter 2 can inject one fault at a time.
 
 use crate::isa::{syscall, Insn};
