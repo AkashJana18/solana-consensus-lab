@@ -52,8 +52,9 @@ stock Rust blocks the last two stages, because stock LLVM has no sBPF target.
 
 The deploy console models the v4 loader sequence: create the program account,
 set its length, write the ELF in chunks, deploy, finalize. The chunk size is a
-slider. The CU figures are illustrative: the model charges a fixed amount per
-chunk so the tradeoff between more transactions and larger writes is visible.
+slider. The CU figures are illustrative: the model charges a fixed per-write
+overhead plus a per-byte term, so the tradeoff between more transactions and
+larger writes is visible.
 
 The verification panel runs the real `svm-core` verifier against the selected
 fault. Ten checks run, and exactly one fails for each injected fault.

@@ -206,7 +206,7 @@ emits ~60k `msg_sent` events, so never render events as DOM.
 - An Alpenglow leader stops producing slices for a slot once its Pool holds a Skip certificate for it, and receivers do not count a block in a skipped slot as "landed" for the hero tx; otherwise a tx could be buried in a dead block with no retry.
 - The SVM Lab's `cu-exhausted` program stops at the 200,000 CU budget, but the browser trace is capped at 2,000 steps. `steps_total` is the honest count, and the player says when it is showing a prefix.
 - The SVM Lab's x86 panel is an annotated translation, not a JIT. `svm-core` has no compiler, and the panel says so.
-- The SVM Lab's deploy CU is illustrative. The real loader prices writes differently; the model charges a fixed amount per chunk so the transaction-count tradeoff is visible.
+- The SVM Lab's deploy CU is illustrative. The real loader prices writes differently; the model charges a fixed per-write overhead plus a per-byte term so the transaction-count tradeoff is visible.
 - The SVM Lab's host addresses in Chapter 1 are stable stand-ins. A real validator's addresses depend on ASLR and change on every run.
 
 ## Tests
