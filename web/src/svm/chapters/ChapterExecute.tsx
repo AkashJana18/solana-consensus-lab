@@ -126,7 +126,13 @@ export function ChapterExecute() {
   }
 
   return (
-    <div className="svm-chapter" onKeyDown={onKeyDown} tabIndex={0}>
+    <div
+      className="svm-chapter"
+      role="region"
+      aria-label="Program execution"
+      onKeyDown={onKeyDown}
+      tabIndex={0}
+    >
       <section className="svm-hero">
         <p className="svm-eyebrow">03 · Program execution</p>
         <h1>The address space is huge. CU is the wall.</h1>
