@@ -19,6 +19,10 @@ jobs:
         with:
           name: wasm-pkg
           path: web/src/wasm/pkg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: svm-wasm-pkg
+          path: web/src/svm/wasm/pkg
   web:
     runs-on: ubuntu-latest
     needs: rust
@@ -28,6 +32,10 @@ jobs:
         with:
           name: wasm-pkg
           path: web/src/wasm/pkg
+      - uses: actions/download-artifact@v4
+        with:
+          name: svm-wasm-pkg
+          path: web/src/svm/wasm/pkg
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
         working-directory: web
@@ -46,8 +54,11 @@ jobs:
                    lessons/skip-certs.html lessons/lockouts.html lessons/twenty-twenty.html; do
             if [ ! -f "dist/$f" ]; then echo "::error::missing dist/$f"; exit 1; fi
           done
-          # Every canonical in the sitemap must name the deployment, not a placeholder.
+          # The SVM lab is a second Vite entry, not a generated guide, so check it on its own.
+          if [ ! -f dist/svm/index.html ]; then echo "::error::missing dist/svm/index.html"; exit 1; fi
+          # Every canonical in the sitemap must name the deployment, and the lab must be listed.
           grep -q 'https://www.solanaconsensuslab.com/' dist/sitemap.xml
+          grep -q 'https://www.solanaconsensuslab.com/svm/' dist/sitemap.xml
           echo "guides present, sitemap points at the canonical origin"
   e2e:
     runs-on: ubuntu-latest
@@ -58,6 +69,10 @@ jobs:
         with:
           name: wasm-pkg
           path: web/src/wasm/pkg
+      - uses: actions/download-artifact@v4
+        with:
+          name: svm-wasm-pkg
+          path: web/src/svm/wasm/pkg
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
         working-directory: web
